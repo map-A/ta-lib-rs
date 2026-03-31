@@ -1,0 +1,48 @@
+[workspace]
+members = [
+    "crates/polars-ta-core",
+    "crates/polars-ta",
+    "crates/polars-ta-verify",
+    # polars-ta-plugin 需要 Python 环境，使用 --package 单独构建：
+    # cargo build --package polars-ta-plugin
+]
+exclude = [
+    "crates/polars-ta-plugin",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["polars-ta contributors"]
+license = "MIT"
+repository = "https://github.com/yourusername/polars-ta"
+keywords = ["polars", "technical-analysis", "finance", "trading", "indicators"]
+categories = ["finance", "science"]
+
+[workspace.dependencies]
+# 算法核心层（零依赖）
+polars-ta-core = { path = "crates/polars-ta-core" }
+
+# Polars 生态
+polars = { version = "0.46", default-features = false, features = ["lazy", "dtype-full"] }
+polars-core = { version = "0.46", default-features = false }
+
+# 序列化（Golden Test 文件读写）
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 测试与基准
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Python 插件
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[profile.bench]
+inherits = "release"
+debug = true

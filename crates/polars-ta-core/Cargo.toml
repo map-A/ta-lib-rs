@@ -1,0 +1,17 @@
+[package]
+name = "polars-ta-core"
+description = "Pure algorithm layer for polars-ta: technical indicators as &[f64] functions, no_std compatible"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["technical-analysis", "finance", "trading", "no-std"]
+
+# 零外部依赖，保证可嵌入 / WASM 使用
+[dependencies]
+
+[dev-dependencies]
+# Golden Test 文件读写（仅 dev）
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,34 @@
+[package]
+name = "polars-ta-verify"
+description = "Golden Test and benchmark framework for polars-ta — verifies numerical parity with ta-lib"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["testing", "benchmarks", "golden-tests", "ta-lib"]
+
+[[bin]]
+name = "run-golden"
+path = "src/bin/run_golden.rs"
+
+[[bin]]
+name = "compare-bench"
+path = "src/bin/compare_bench.rs"
+
+[dependencies]
+polars-ta-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+polars-ta-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[[bench]]
+name = "bench_vs_talib"
+harness = false
+
+[dev-dependencies.criterion]
+workspace = true

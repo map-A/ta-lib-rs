@@ -1,0 +1,188 @@
+//! Chaikin Accumulation/Distribution Line (AD)
+//!
+//! A cumulative volume-weighted indicator that measures the relationship
+//! between price and volume to gauge supply and demand.
+//! Numerically identical to ta-lib's `TA_AD`.
+//!
+//! # Algorithm
+//!
+//! ```text
+//! clv[i] = (2*close[i] - high[i] - low[i]) / (high[i] - low[i])
+//! clv[i] = 0.0  when high[i] == low[i]
+//!
+//! ad[0] = clv[0] * volume[0]
+//! for i in 1..n:
+//!   ad[i] = ad[i-1] + clv[i] * volume[i]
+//! ```
+//!
+//! # Parameters
+//!
+//! - `high`   — high prices
+//! - `low`    — low prices
+//! - `close`  — closing prices
+//! - `volume` — trading volume
+//!
+//! # Output
+//!
+//! - Length = `close.len()` (lookback = 0)
+//! - Returns empty `Vec` when any input slice is empty or lengths differ
+//!
+//! # NaN Handling
+//!
+//! NaN in any input propagates via IEEE 754 arithmetic.
+//!
+//! # Example
+//!
+//! ```rust
+//! use polars_ta_core::volume::ad;
+//!
+//! let high   = vec![10.0, 11.0, 12.0];
+//! let low    = vec![8.0,  9.0,  10.0];
+//! let close  = vec![9.0,  10.0, 11.0];
+//! let volume = vec![1000.0, 2000.0, 1500.0];
+//! let result = ad(&high, &low, &close, &volume);
+//! assert_eq!(result.len(), 3);
+//! ```
+
+/// Chaikin Accumulation/Distribution Line.
+///
+/// See [module documentation](self) for full details.
+pub fn ad(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> {
+    let n = close.len();
+    if n == 0 || high.len() != n || low.len() != n || volume.len() != n {
+        return vec![];
+    }
+
+    let mut out = vec![0.0_f64; n];
+
+    // 两阶段：阶段1 计算每个 clv*volume（无跨元素依赖，LLVM 可向量化），
+    //         阶段2 就地前缀求和（串行累积）。
+    // SAFETY: 所有索引均在 [0, n) 内
+    unsafe {
+        let h = high.as_ptr();
+        let l = low.as_ptr();
+        let c = close.as_ptr();
+        let v = volume.as_ptr();
+        let o = out.as_mut_ptr();
+
+        // 阶段1：branchless clv*vol — range==0 时 (2c-h-l)=0，分子为 0，结果为 0
+        for i in 0..n {
+            let hi = *h.add(i);
+            let lo = *l.add(i);
+            let cl = *c.add(i);
+            let vo = *v.add(i);
+            let range = hi - lo;
+            // 用 1.0 替代 0 的分母，避免 NaN；此时分子也为 0，结果仍为 0
+            let safe_den = range + f64::from(range == 0.0);
+            *o.add(i) = (2.0 * cl - hi - lo) * vo / safe_den;
+        }
+
+        // 阶段2：就地前缀求和
+        let mut acc = 0.0_f64;
+        for i in 0..n {
+            acc += *o.add(i);
+            *o.add(i) = acc;
+        }
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(actual: f64, expected: f64, eps: f64) {
+        assert!(
+            (actual - expected).abs() < eps || (actual.is_nan() && expected.is_nan()),
+            "actual={actual:.10}, expected={expected:.10}",
+        );
+    }
+
+    #[test]
+    fn ad_basic() {
+        // close = midpoint → clv = 0 → ad = 0 throughout
+        let high   = vec![10.0, 11.0];
+        let low    = vec![8.0,  9.0];
+        let close  = vec![9.0,  10.0];   // midpoints
+        let volume = vec![1000.0, 2000.0];
+        let result = ad(&high, &low, &close, &volume);
+        assert_eq!(result.len(), 2);
+        assert_close(result[0], 0.0, 1e-10);
+        assert_close(result[1], 0.0, 1e-10);
+    }
+
+    #[test]
+    fn ad_close_at_high() {
+        // close == high → clv = 1 → ad[0] = volume[0]
+        let high   = vec![10.0];
+        let low    = vec![8.0];
+        let close  = vec![10.0];
+        let volume = vec![500.0];
+        let result = ad(&high, &low, &close, &volume);
+        assert_eq!(result.len(), 1);
+        assert_close(result[0], 500.0, 1e-10);
+    }
+
+    #[test]
+    fn ad_close_at_low() {
+        // close == low → clv = -1 → ad[0] = -volume[0]
+        let high   = vec![10.0];
+        let low    = vec![8.0];
+        let close  = vec![8.0];
+        let volume = vec![500.0];
+        let result = ad(&high, &low, &close, &volume);
+        assert_eq!(result.len(), 1);
+        assert_close(result[0], -500.0, 1e-10);
+    }
+
+    #[test]
+    fn ad_high_equals_low() {
+        // 高低相同 → clv = 0 → 不改变累积值
+        let high   = vec![10.0, 10.0];
+        let low    = vec![10.0, 10.0];
+        let close  = vec![10.0, 10.0];
+        let volume = vec![1000.0, 1000.0];
+        let result = ad(&high, &low, &close, &volume);
+        assert_eq!(result.len(), 2);
+        assert_close(result[0], 0.0, 1e-10);
+        assert_close(result[1], 0.0, 1e-10);
+    }
+
+    #[test]
+    fn ad_empty() {
+        assert!(ad(&[], &[], &[], &[]).is_empty());
+    }
+
+    #[test]
+    fn ad_length_mismatch() {
+        let high  = vec![10.0, 11.0];
+        let low   = vec![8.0];
+        let close = vec![9.0, 10.0];
+        let vol   = vec![100.0, 100.0];
+        assert!(ad(&high, &low, &close, &vol).is_empty());
+    }
+
+    #[test]
+    fn ad_cumulative_sum() {
+        // 验证累积：close 始终在高点 → clv=1, ad[i] = sum of volumes
+        let n = 5;
+        let high:   Vec<f64> = vec![10.0; n];
+        let low:    Vec<f64> = vec![8.0; n];
+        let close:  Vec<f64> = vec![10.0; n]; // clv = 1
+        let volume: Vec<f64> = vec![100.0; n];
+        let result = ad(&high, &low, &close, &volume);
+        assert_eq!(result.len(), n);
+        for (i, v) in result.iter().enumerate() {
+            assert_close(*v, 100.0 * (i + 1) as f64, 1e-10);
+        }
+    }
+
+    #[test]
+    fn ad_output_length_equals_input() {
+        let n = 30;
+        let data: Vec<f64> = vec![5.0; n];
+        let result = ad(&data, &data, &data, &data);
+        assert_eq!(result.len(), n);
+    }
+}

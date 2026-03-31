@@ -1,0 +1,14 @@
+[project]
+name = "polars-ta-python"
+version = "0.1.0"
+description = "Python tooling for polars-ta: golden test generation and ta-lib benchmarks"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "ta-lib>=0.4.28",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0",
+]

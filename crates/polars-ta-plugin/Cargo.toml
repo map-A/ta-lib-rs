@@ -1,0 +1,18 @@
+[package]
+name = "polars-ta-plugin"
+description = "Polars Python plugin for polars-ta — use technical indicators as native Polars expressions"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["polars", "python", "plugin", "technical-analysis"]
+
+[lib]
+# 作为 Python 扩展模块编译
+crate-type = ["cdylib"]
+
+[dependencies]
+polars-ta-core = { workspace = true }
+polars = { workspace = true }
+pyo3 = { workspace = true }
