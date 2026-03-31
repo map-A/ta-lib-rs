@@ -1,0 +1,16 @@
+[package]
+name = "polars-ta"
+description = "Polars Series interface for technical indicators — native Polars integration, aligned with ta-lib"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["polars", "technical-analysis", "finance", "trading"]
+
+[dependencies]
+polars-ta-core = { workspace = true }
+polars-core = { workspace = true }
+
+[dev-dependencies]
+polars = { workspace = true }
