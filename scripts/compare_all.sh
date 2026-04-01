@@ -70,29 +70,24 @@ echo "  → Raw output saved to: $OUTPUT_DIR/rust_bench.txt"
 
 echo ""
 
-# ── Step 3: Print comparison report ───────────────────────────────────────────
+# ── Step 3: Side-by-side comparison table ─────────────────────────────────────
 echo "══════════════════════════════════════════════════════════════"
-echo "  Comparison Report"
-echo "══════════════════════════════════════════════════════════════"
-
-if [ -n "$TALIB_RESULTS" ] && [ -f "$TALIB_RESULTS" ]; then
-  echo ""
-  echo "ta-lib C baseline:"
-  python3 scripts/bench_talib.py --indicator "$INDICATOR" --output table
-fi
-
-echo ""
-echo "Rust criterion results are in: target/criterion/"
-echo "Open target/criterion/report/index.html for HTML report."
-
-echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo "  Performance Threshold Check"
+echo "  Side-by-Side Performance Comparison (size=1,000,000)"
 echo "══════════════════════════════════════════════════════════════"
 echo "  Threshold for merge: polars-ta ≥ 80% of ta-lib C throughput"
 echo "  Target:              polars-ta ≥ 95% of ta-lib C throughput"
+
+TALIB_ARG=""
+if [ -n "$TALIB_RESULTS" ] && [ -f "$TALIB_RESULTS" ]; then
+  TALIB_ARG="--talib-json $TALIB_RESULTS"
+fi
+
+python3 scripts/compare_bench.py \
+  --rust-bench "$OUTPUT_DIR/rust_bench.txt" \
+  $TALIB_ARG \
+  --size 1000000
+
 echo ""
-echo "  Run 'cargo bench' to get Rust throughput numbers,"
-echo "  then compare with the ta-lib C numbers above."
+echo "  HTML criterion report: open target/criterion/report/index.html"
 echo ""
 echo "✅ Comparison complete. Full results in: $OUTPUT_DIR/"
