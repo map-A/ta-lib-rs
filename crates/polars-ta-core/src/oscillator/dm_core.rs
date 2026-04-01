@@ -19,44 +19,46 @@ pub(crate) fn compute_dm_smoothed_hl(
         return None;
     }
 
-    let raw_dm = |i: usize| -> (f64, f64) {
-        let up_move = high[i] - high[i - 1];
-        let dn_move = low[i - 1] - low[i];
-        let plus = if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
-        let minus = if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
-        (plus, minus)
-    };
-
     let pf = period as f64;
     let k = 1.0 - 1.0 / pf;
 
-    // Accumulate raw DM for indices 1..period (= period-1 values)
     let mut s_plus = 0.0_f64;
     let mut s_minus = 0.0_f64;
-    for i in 1..period {
-        let (p, m) = raw_dm(i);
-        s_plus += p;
-        s_minus += m;
+
+    unsafe {
+        // SAFETY: 索引范围 1..period，period ≤ n，所以 i 和 i-1 均在 [0, n-1] 内
+        let h = high.as_ptr();
+        let l = low.as_ptr();
+
+        for i in 1..period {
+            let up_move = *h.add(i) - *h.add(i - 1);
+            let dn_move = *l.add(i - 1) - *l.add(i);
+            s_plus  += if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            s_minus += if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+        }
+
+        let out_len = n - (period - 1);
+        let mut out_plus  = vec![0.0f64; out_len];
+        let mut out_minus = vec![0.0f64; out_len];
+        let op = out_plus.as_mut_ptr();
+        let om = out_minus.as_mut_ptr();
+
+        *op = s_plus;
+        *om = s_minus;
+
+        // SAFETY: j 遍历 1..out_len，i = period + j - 1 < n；索引 i 和 i-1 在 [0, n-1] 内
+        for j in 1..out_len {
+            let i = period - 1 + j;
+            let up_move = *h.add(i) - *h.add(i - 1);
+            let dn_move = *l.add(i - 1) - *l.add(i);
+            s_plus  = s_plus  * k + if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            s_minus = s_minus * k + if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            *op.add(j) = s_plus;
+            *om.add(j) = s_minus;
+        }
+
+        Some((out_plus, out_minus))
     }
-
-    let out_len = n - (period - 1);
-    let mut out_plus = Vec::with_capacity(out_len);
-    let mut out_minus = Vec::with_capacity(out_len);
-
-    // First output = initial sum (no Wilder step)
-    out_plus.push(s_plus);
-    out_minus.push(s_minus);
-
-    // Wilder smoothing for remaining values
-    for i in period..n {
-        let (p, m) = raw_dm(i);
-        s_plus = s_plus * k + p;
-        s_minus = s_minus * k + m;
-        out_plus.push(s_plus);
-        out_minus.push(s_minus);
-    }
-
-    Some((out_plus, out_minus))
 }
 
 /// Compute Wilder-smoothed +DM, -DM, and TR using high, low, close.
@@ -78,61 +80,72 @@ pub(crate) fn compute_dm_tr_smoothed(
         return None;
     }
 
-    let tr = |i: usize| -> f64 {
-        let hl = high[i] - low[i];
-        let hc = (high[i] - close[i - 1]).abs();
-        let lc = (low[i] - close[i - 1]).abs();
-        hl.max(hc).max(lc)
-    };
-
-    let raw_dm = |i: usize| -> (f64, f64) {
-        let up_move = high[i] - high[i - 1];
-        let dn_move = low[i - 1] - low[i];
-        let plus = if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
-        let minus = if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
-        (plus, minus)
-    };
-
     let pf = period as f64;
     let k = 1.0 - 1.0 / pf;
 
-    // Accumulate for indices 1..period (= period-1 values)
-    let mut s_plus = 0.0_f64;
+    let mut s_plus  = 0.0_f64;
     let mut s_minus = 0.0_f64;
-    let mut s_tr = 0.0_f64;
-    for i in 1..period {
-        let (p, m) = raw_dm(i);
-        s_plus += p;
-        s_minus += m;
-        s_tr += tr(i);
+    let mut s_tr    = 0.0_f64;
+
+    unsafe {
+        // SAFETY: 所有索引均在 [0, n-1] 内：
+        // - 初始化循环 1..period：i 和 i-1 在 [0, period-1] ⊂ [0, n-1]
+        // - Wilder 步骤 period：索引 period 和 period-1，由 n ≥ period+1 保证
+        // - 主循环 1..out_len：i = period+j < n（因 j < out_len = n-period）
+        let h = high.as_ptr();
+        let l = low.as_ptr();
+        let c = close.as_ptr();
+
+        for i in 1..period {
+            let up_move = *h.add(i) - *h.add(i - 1);
+            let dn_move = *l.add(i - 1) - *l.add(i);
+            s_plus  += if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            s_minus += if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            let hl = *h.add(i) - *l.add(i);
+            let hc = (*h.add(i) - *c.add(i - 1)).abs();
+            let lc = (*l.add(i) - *c.add(i - 1)).abs();
+            s_tr += hl.max(hc).max(lc);
+        }
+
+        // 第一个 Wilder 步骤（索引 period）
+        {
+            let up_move = *h.add(period) - *h.add(period - 1);
+            let dn_move = *l.add(period - 1) - *l.add(period);
+            s_plus  = s_plus  * k + if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            s_minus = s_minus * k + if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            let hl = *h.add(period) - *l.add(period);
+            let hc = (*h.add(period) - *c.add(period - 1)).abs();
+            let lc = (*l.add(period) - *c.add(period - 1)).abs();
+            s_tr = s_tr * k + hl.max(hc).max(lc);
+        }
+
+        let out_len = n - period;
+        let mut out_plus  = vec![0.0f64; out_len];
+        let mut out_minus = vec![0.0f64; out_len];
+        let mut out_tr    = vec![0.0f64; out_len];
+        let op = out_plus.as_mut_ptr();
+        let om = out_minus.as_mut_ptr();
+        let ot = out_tr.as_mut_ptr();
+
+        *op = s_plus;
+        *om = s_minus;
+        *ot = s_tr;
+
+        for j in 1..out_len {
+            let i = period + j;
+            let up_move = *h.add(i) - *h.add(i - 1);
+            let dn_move = *l.add(i - 1) - *l.add(i);
+            s_plus  = s_plus  * k + if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            s_minus = s_minus * k + if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            let hl = *h.add(i) - *l.add(i);
+            let hc = (*h.add(i) - *c.add(i - 1)).abs();
+            let lc = (*l.add(i) - *c.add(i - 1)).abs();
+            s_tr = s_tr * k + hl.max(hc).max(lc);
+            *op.add(j) = s_plus;
+            *om.add(j) = s_minus;
+            *ot.add(j) = s_tr;
+        }
+
+        Some((out_plus, out_minus, out_tr))
     }
-
-    // One Wilder step at index period to get first smoothed value
-    {
-        let (p, m) = raw_dm(period);
-        s_plus = s_plus * k + p;
-        s_minus = s_minus * k + m;
-        s_tr = s_tr * k + tr(period);
-    }
-
-    let out_len = n - period;
-    let mut out_plus = Vec::with_capacity(out_len);
-    let mut out_minus = Vec::with_capacity(out_len);
-    let mut out_tr = Vec::with_capacity(out_len);
-
-    out_plus.push(s_plus);
-    out_minus.push(s_minus);
-    out_tr.push(s_tr);
-
-    for i in (period + 1)..n {
-        let (p, m) = raw_dm(i);
-        s_plus = s_plus * k + p;
-        s_minus = s_minus * k + m;
-        s_tr = s_tr * k + tr(i);
-        out_plus.push(s_plus);
-        out_minus.push(s_minus);
-        out_tr.push(s_tr);
-    }
-
-    Some((out_plus, out_minus, out_tr))
 }

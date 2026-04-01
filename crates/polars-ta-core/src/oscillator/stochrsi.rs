@@ -36,6 +36,7 @@
 //! ```
 
 use super::rsi::rsi;
+use std::collections::VecDeque;
 
 /// Output of the Stochastic RSI.
 pub struct StochRsiOutput {
@@ -71,23 +72,45 @@ pub fn stochrsi(
         return empty;
     }
 
-    // Compute fastk from RSI values
+    // Compute fastk from RSI values using O(n) sliding min/max deques
     let fastk_raw_len = n - (fastk_period - 1);
     let mut fastk_raw = Vec::with_capacity(fastk_raw_len);
-    for i in (fastk_period - 1)..n {
-        let start = i + 1 - fastk_period;
-        let mut hh = rsi_values[start];
-        let mut ll = rsi_values[start];
-        for j in (start + 1)..=i {
-            if rsi_values[j] > hh { hh = rsi_values[j]; }
-            if rsi_values[j] < ll { ll = rsi_values[j]; }
+
+    let mut max_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+    let mut min_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+
+    for i in 0..n {
+        // 移除窗口外的过期索引
+        if i >= fastk_period {
+            let window_start = i - fastk_period + 1;
+            while max_dq.front().map_or(false, |&j| j < window_start) {
+                max_dq.pop_front();
+            }
+            while min_dq.front().map_or(false, |&j| j < window_start) {
+                min_dq.pop_front();
+            }
         }
-        let fk = if (hh - ll).abs() < f64::EPSILON {
-            0.0
-        } else {
-            (rsi_values[i] - ll) / (hh - ll) * 100.0
-        };
-        fastk_raw.push(fk);
+        // 维护单调递减队列（最大值）
+        while max_dq.back().map_or(false, |&j| rsi_values[j] <= rsi_values[i]) {
+            max_dq.pop_back();
+        }
+        max_dq.push_back(i);
+        // 维护单调递增队列（最小值）
+        while min_dq.back().map_or(false, |&j| rsi_values[j] >= rsi_values[i]) {
+            min_dq.pop_back();
+        }
+        min_dq.push_back(i);
+
+        if i >= fastk_period - 1 {
+            let hh = rsi_values[*max_dq.front().unwrap()];
+            let ll = rsi_values[*min_dq.front().unwrap()];
+            let fk = if (hh - ll).abs() < f64::EPSILON {
+                0.0
+            } else {
+                (rsi_values[i] - ll) / (hh - ll) * 100.0
+            };
+            fastk_raw.push(fk);
+        }
     }
 
     // fastd = SMA(fastk_raw, fastd_period)
@@ -100,18 +123,19 @@ pub fn stochrsi(
     StochRsiOutput { fastk, fastd }
 }
 
-/// Internal SMA helper.
+/// Internal SMA helper: O(n) sliding sum with precomputed inverse.
 fn sma(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
     if period == 0 || n < period {
         return vec![];
     }
+    let inv = 1.0 / period as f64;
     let mut out = Vec::with_capacity(n - period + 1);
     let mut sum: f64 = data[..period].iter().sum();
-    out.push(sum / period as f64);
+    out.push(sum * inv);
     for i in period..n {
         sum += data[i] - data[i - period];
-        out.push(sum / period as f64);
+        out.push(sum * inv);
     }
     out
 }

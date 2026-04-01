@@ -39,6 +39,8 @@
 //! assert_eq!(result.slowk.len(), result.slowd.len());
 //! ```
 
+use std::collections::VecDeque;
+
 /// Output of the Stochastic Oscillator.
 pub struct StochOutput {
     /// Smoothed %K (SMA of raw fastk).
@@ -73,23 +75,47 @@ pub fn stoch(
         return empty;
     }
 
-    // Step 1: compute raw fastk for each position where we have a full window
+    // Step 1: O(n) sliding min/max via monotonic deques
     let fastk_len = n - (fastk_period - 1);
     let mut fastk = Vec::with_capacity(fastk_len);
-    for i in (fastk_period - 1)..n {
-        let start = i + 1 - fastk_period;
-        let mut hh = high[start];
-        let mut ll = low[start];
-        for j in (start + 1)..=i {
-            if high[j] > hh { hh = high[j]; }
-            if low[j] < ll { ll = low[j]; }
+
+    // max_dq: indices in decreasing order of high values (front = current max)
+    // min_dq: indices in increasing order of low values (front = current min)
+    let mut max_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+    let mut min_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+
+    for i in 0..n {
+        // 移除窗口外的过期索引
+        if i >= fastk_period {
+            let window_start = i - fastk_period + 1;
+            while max_dq.front().map_or(false, |&j| j < window_start) {
+                max_dq.pop_front();
+            }
+            while min_dq.front().map_or(false, |&j| j < window_start) {
+                min_dq.pop_front();
+            }
         }
-        let fk = if (hh - ll).abs() < f64::EPSILON {
-            0.0
-        } else {
-            (close[i] - ll) / (hh - ll) * 100.0
-        };
-        fastk.push(fk);
+        // 维护单调递减队列（最大值）
+        while max_dq.back().map_or(false, |&j| high[j] <= high[i]) {
+            max_dq.pop_back();
+        }
+        max_dq.push_back(i);
+        // 维护单调递增队列（最小值）
+        while min_dq.back().map_or(false, |&j| low[j] >= low[i]) {
+            min_dq.pop_back();
+        }
+        min_dq.push_back(i);
+
+        if i >= fastk_period - 1 {
+            let hh = high[*max_dq.front().unwrap()];
+            let ll = low[*min_dq.front().unwrap()];
+            let fk = if (hh - ll).abs() < f64::EPSILON {
+                0.0
+            } else {
+                (close[i] - ll) / (hh - ll) * 100.0
+            };
+            fastk.push(fk);
+        }
     }
 
     // Step 2: slowk = SMA(fastk, slowk_period)
@@ -99,23 +125,24 @@ pub fn stoch(
     let slowd = sma(&slowk, slowd_period);
 
     // Trim slowk to match slowd length (ta-lib convention: both outputs same length)
-    let trim = slowk.len() - slowd.len();
+    let trim = slowd_period - 1;
     let slowk = slowk[trim..].to_vec();
     StochOutput { slowk, slowd }
 }
 
-/// Internal SMA helper (avoids dependency on trend module).
+/// Internal SMA helper: O(n) sliding sum with precomputed inverse.
 fn sma(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
     if period == 0 || n < period {
         return vec![];
     }
+    let inv = 1.0 / period as f64;
     let mut out = Vec::with_capacity(n - period + 1);
     let mut sum: f64 = data[..period].iter().sum();
-    out.push(sum / period as f64);
+    out.push(sum * inv);
     for i in period..n {
         sum += data[i] - data[i - period];
-        out.push(sum / period as f64);
+        out.push(sum * inv);
     }
     out
 }

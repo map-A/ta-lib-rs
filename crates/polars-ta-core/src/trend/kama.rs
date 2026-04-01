@@ -43,37 +43,51 @@ pub fn kama(data: &[f64], period: usize) -> Vec<f64> {
     let sc_diff = fast_sc - slow_sc;
 
     let out_len = n - period;
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0f64; out_len];
 
-    // 滑动窗口: volatility = sum(|data[k]-data[k-1]| for k in i-period+1..=i)
-    // 直接用 data 索引，无需预计算 abs_diffs Vec
-    let mut vol_sum: f64 = (1..=period).map(|k| (data[k] - data[k - 1]).abs()).sum();
+    // 初始化波动性累加和（索引 1..=period）
+    let mut vol_sum: f64 = 0.0;
+    unsafe {
+        // SAFETY: k 遍历 1..=period，period < n，所以 k 和 k-1 均在 [0, n-1] 内
+        let ptr = data.as_ptr();
+        for k in 1..=period {
+            vol_sum += (*ptr.add(k) - *ptr.add(k - 1)).abs();
+        }
+    }
 
     // ta-lib 以 close[period-1] 为内部种子（不输出），第一个输出是 close[period] 的第一次 KAMA 更新
     let mut prev_kama = data[period - 1];
 
-    for i in period..n {
-        let direction = (data[i] - data[i - period]).abs();
+    unsafe {
+        // SAFETY: 循环中所有索引均在 [0, n-1] 内：
+        // - idx = period + i，i < out_len = n - period，所以 idx < n
+        // - i 作为"old"索引，i < out_len ≤ n - 1
+        // - idx + 1 仅在 i < out_len - 1 时访问，此时 idx + 1 = period + i + 1 ≤ n - 1
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
 
-        let er = if vol_sum == 0.0 {
-            0.0
-        } else {
-            direction / vol_sum
-        };
-        let sc = (er * sc_diff + slow_sc).powi(2);
+        for i in 0..out_len {
+            let idx = period + i;
+            let cur = *data_ptr.add(idx);
+            let old = *data_ptr.add(i);
 
-        let cur_kama = prev_kama + sc * (data[i] - prev_kama);
-        out.push(cur_kama);
-        prev_kama = cur_kama;
+            let direction = (cur - old).abs();
+            let er = if vol_sum > 0.0 { direction / vol_sum } else { 0.0 };
+            let sc = (er * sc_diff + slow_sc).powi(2);
 
-        // 滑动窗口：移出 |data[i-period+1]-data[i-period]|，移入 |data[i+1]-data[i]|
-        if i < n - 1 {
-            let out_val = (data[i - period + 1] - data[i - period]).abs();
-            let in_val  = (data[i + 1] - data[i]).abs();
-            vol_sum = (vol_sum - out_val + in_val).max(0.0);
+            let cur_kama = prev_kama + sc * (cur - prev_kama);
+            *out_ptr.add(i) = cur_kama;
+            prev_kama = cur_kama;
+
+            // 滑动窗口：移出最旧差值，移入最新差值
+            if i < out_len - 1 {
+                let next = *data_ptr.add(idx + 1);
+                let old_diff = (*data_ptr.add(i + 1) - old).abs();
+                let new_diff = (next - cur).abs();
+                vol_sum = (vol_sum - old_diff + new_diff).max(0.0);
+            }
         }
     }
-
     out
 }
 

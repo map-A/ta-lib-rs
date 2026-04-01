@@ -53,45 +53,49 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
         return vec![];
     }
 
-    // Precompute typical price and raw money flow
+    // 仅保留 typical price（用于 tp[i-1] 比较），money flow 通过 tp[i]*volume[i] 内联计算
+    // 相比原实现减少 3 个中间 Vec（raw_mf, pos_mf, neg_mf），提升缓存局部性
     let mut tp = Vec::with_capacity(n);
-    let mut raw_mf = Vec::with_capacity(n);
     for i in 0..n {
-        let t = (high[i] + low[i] + close[i]) / 3.0;
-        tp.push(t);
-        raw_mf.push(t * volume[i]);
+        tp.push((high[i] + low[i] + close[i]) / 3.0);
     }
 
-    // Precompute positive and negative money flows (indices 1..n)
-    // pos_mf[i] and neg_mf[i] are at original index i (starting from 1)
-    let mf_len = n - 1; // indices 1..n
-    let mut pos_mf = Vec::with_capacity(mf_len);
-    let mut neg_mf = Vec::with_capacity(mf_len);
-    for i in 1..n {
-        if tp[i] > tp[i - 1] {
-            pos_mf.push(raw_mf[i]);
-            neg_mf.push(0.0);
-        } else if tp[i] < tp[i - 1] {
-            pos_mf.push(0.0);
-            neg_mf.push(raw_mf[i]);
-        } else {
-            pos_mf.push(0.0);
-            neg_mf.push(0.0);
-        }
-    }
-
-    // Rolling sums over `period` money flow values
-    // First window: pos_mf[0..period], neg_mf[0..period]
     let out_len = n - period;
     let mut out = Vec::with_capacity(out_len);
 
-    let mut pos_sum: f64 = pos_mf[..period].iter().sum();
-    let mut neg_sum: f64 = neg_mf[..period].iter().sum();
+    // 初始化第一个窗口：原始索引 1..=period 的正负 money flow
+    let mut pos_sum = 0.0_f64;
+    let mut neg_sum = 0.0_f64;
+    for i in 1..=period {
+        let raw = tp[i] * volume[i];
+        if tp[i] > tp[i - 1] {
+            pos_sum += raw;
+        } else if tp[i] < tp[i - 1] {
+            neg_sum += raw;
+        }
+    }
     out.push(compute_mfi(pos_sum, neg_sum));
 
-    for i in period..mf_len {
-        pos_sum += pos_mf[i] - pos_mf[i - period];
-        neg_sum += neg_mf[i] - neg_mf[i - period];
+    // 滑动窗口
+    for i in (period + 1)..n {
+        let out_i = i - period;
+        // 移出旧元素
+        let out_raw = tp[out_i] * volume[out_i];
+        if tp[out_i] > tp[out_i - 1] {
+            pos_sum -= out_raw;
+        } else if tp[out_i] < tp[out_i - 1] {
+            neg_sum -= out_raw;
+        }
+        // 移入新元素
+        let in_raw = tp[i] * volume[i];
+        if tp[i] > tp[i - 1] {
+            pos_sum += in_raw;
+        } else if tp[i] < tp[i - 1] {
+            neg_sum += in_raw;
+        }
+        // 浮点误差保护：防止累计减法产生微小负值
+        pos_sum = pos_sum.max(0.0);
+        neg_sum = neg_sum.max(0.0);
         out.push(compute_mfi(pos_sum, neg_sum));
     }
 

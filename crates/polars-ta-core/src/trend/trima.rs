@@ -38,36 +38,43 @@ pub fn trima(data: &[f64], period: usize) -> Vec<f64> {
     // 注: p1 + p2 = period + 1 (对奇/偶 period 均成立)
 
     let out_len = n - period + 1;
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0f64; out_len];
     let inv = 1.0 / (p1 as f64 * p2 as f64);
 
-    // 两指针滑动法：维护两个内层 SMA 的 running sum，完全避免中间 Vec 分配
-    // `leave` = inner_sum[t-1]（即将被移出外层窗口的内层 SMA）
-    // `enter` = inner_sum[t+p2-1]（即将被移入外层窗口的内层 SMA）
-    // 每步: outer_sum = outer_sum - leave + enter
+    unsafe {
+        // SAFETY: 所有索引均在 [0, n-1] 内（已在循环范围分析中验证）：
+        // - leave 初始化：k in 0..p1，p1 ≤ period ≤ n
+        // - enter 滑动：j + p1 - 1 ≤ p2-1+p1-1 = period-2 < n
+        // - 主循环 t in 1..out_len：
+        //   t + p2 - 2 ≤ out_len-1+p2-2 = n-p1-2 < n
+        //   t + p2 + p1 - 2 ≤ out_len-1+period-2 = n-2 < n
+        //   t - 1 ≤ out_len - 2 < n
+        //   t + p1 - 1 ≤ out_len-1+p1-1 ≤ n-p2-1 < n
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
 
-    // 初始化: leave = inner_sum[0], enter 从 inner_sum[0] 滑到 inner_sum[p2-1]
-    let mut leave: f64 = data[..p1].iter().sum();
-    let mut enter = leave;
-    let mut outer_sum = leave;
+        // 初始化 leave = inner_sum[0]（data[0..p1] 之和）
+        let mut leave: f64 = 0.0;
+        for k in 0..p1 {
+            leave += *data_ptr.add(k);
+        }
+        let mut enter = leave;
+        let mut outer_sum = leave;
 
-    for j in 1..p2 {
-        // enter slides to inner_sum[j] = inner_sum[j-1] - data[j-1] + data[j+p1-1]
-        enter = enter - data[j - 1] + data[j + p1 - 1];
-        outer_sum += enter;
+        // 将 enter 滑动到 inner_sum[p2-1]，累积外层和
+        for j in 1..p2 {
+            enter = enter - *data_ptr.add(j - 1) + *data_ptr.add(j + p1 - 1);
+            outer_sum += enter;
+        }
+        *out_ptr = outer_sum * inv;
+
+        for t in 1..out_len {
+            enter = enter - *data_ptr.add(t + p2 - 2) + *data_ptr.add(t + p2 + p1 - 2);
+            outer_sum = outer_sum - leave + enter;
+            *out_ptr.add(t) = outer_sum * inv;
+            leave = leave - *data_ptr.add(t - 1) + *data_ptr.add(t + p1 - 1);
+        }
     }
-    // 此时: leave = inner_sum[0], enter = inner_sum[p2-1], outer_sum = Σ inner_sum[0..p2]
-    out.push(outer_sum * inv);
-
-    for t in 1..out_len {
-        // enter → inner_sum[t+p2-1]
-        enter = enter - data[t + p2 - 2] + data[t + p2 + p1 - 2];
-        outer_sum = outer_sum - leave + enter;
-        out.push(outer_sum * inv);
-        // leave → inner_sum[t]（下一步使用）
-        leave = leave - data[t - 1] + data[t + p1 - 1];
-    }
-
     out
 }
 
