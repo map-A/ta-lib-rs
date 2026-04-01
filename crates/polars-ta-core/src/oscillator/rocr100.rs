@@ -9,14 +9,12 @@ pub fn rocr100(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period;
-    let mut out = Vec::with_capacity(out_len);
-    for i in 0..out_len {
-        let prev = data[i];
-        if prev == 0.0 {
-            out.push(0.0);
-        } else {
-            out.push(data[period + i] / prev * 100.0);
-        }
-    }
-    out
+    data[period..].iter()
+        .zip(data[..out_len].iter())
+        .map(|(&a, &b)| {
+            let safe = if b == 0.0 { 1.0 } else { b };
+            let flag = if b == 0.0 { 0.0 } else { 1.0 };
+            a / safe * flag * 100.0
+        })
+        .collect()
 }
