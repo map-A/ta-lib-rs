@@ -1,8 +1,6 @@
-//! MAX — rolling maximum using a monotone deque (O(n)).
+//! MAX — rolling maximum using O(n) ring-buffer monotone deque.
 //!
 //! Output length = `n - period + 1` (lookback = period - 1).
-
-use std::collections::VecDeque;
 
 pub fn max(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
@@ -10,22 +8,42 @@ pub fn max(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period + 1;
-    let mut out = Vec::with_capacity(out_len);
-    // 单调递减队列，队首为当前窗口最大值的下标
-    let mut deque: VecDeque<usize> = VecDeque::new();
 
-    for i in 0..n {
-        // 移除滑出窗口的下标
-        while deque.front().map_or(false, |&j| i - j >= period) {
-            deque.pop_front();
-        }
-        // 移除所有严格小于当前值的下标（维护递减性，保留最左侧的最大值）
-        while deque.back().map_or(false, |&j| data[j] < data[i]) {
-            deque.pop_back();
-        }
-        deque.push_back(i);
-        if i >= period - 1 {
-            out.push(data[*deque.front().unwrap()]);
+    // 幂次方容量的环形缓冲区，用位掩码替代取模
+    let cap = period.next_power_of_two().max(4);
+    let mask = cap - 1;
+    let mut buf = vec![0usize; cap];
+    let mut front = 0usize;
+    let mut back = 0usize;
+
+    let mut out = vec![0.0f64; out_len];
+
+    unsafe {
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
+
+        for i in 0..n {
+            // 移除滑出窗口的过期下标
+            if i >= period {
+                let ws = i - period + 1;
+                while front != back && *buf.get_unchecked(front & mask) < ws {
+                    front = front.wrapping_add(1);
+                }
+            }
+            // 维护单调递减（移除所有小于当前值的尾部下标）
+            while front != back
+                && *data_ptr.add(*buf.get_unchecked(back.wrapping_sub(1) & mask))
+                    < *data_ptr.add(i)
+            {
+                back = back.wrapping_sub(1);
+            }
+            *buf.get_unchecked_mut(back & mask) = i;
+            back = back.wrapping_add(1);
+
+            if i >= period - 1 {
+                *out_ptr.add(i + 1 - period) =
+                    *data_ptr.add(*buf.get_unchecked(front & mask));
+            }
         }
     }
     out

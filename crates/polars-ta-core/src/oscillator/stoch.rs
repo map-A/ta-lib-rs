@@ -39,8 +39,6 @@
 //! assert_eq!(result.slowk.len(), result.slowd.len());
 //! ```
 
-use std::collections::VecDeque;
-
 /// Output of the Stochastic Oscillator.
 pub struct StochOutput {
     /// Smoothed %K (SMA of raw fastk).
@@ -75,48 +73,73 @@ pub fn stoch(
         return empty;
     }
 
-    // Step 1: O(n) sliding min/max via monotonic deques
+    // Step 1: O(n) sliding min/max via ring-buffer monotone deques
     let fastk_len = n - (fastk_period - 1);
-    let mut fastk = Vec::with_capacity(fastk_len);
+    let mut fastk = vec![0.0f64; fastk_len];
 
-    // max_dq: indices in decreasing order of high values (front = current max)
-    // min_dq: indices in increasing order of low values (front = current min)
-    let mut max_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
-    let mut min_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+    // 幂次方容量的环形缓冲区，位掩码替代取模
+    let cap = fastk_period.next_power_of_two().max(4);
+    let mask = cap - 1;
+    let mut max_buf = vec![0usize; cap];
+    let mut min_buf = vec![0usize; cap];
+    let mut max_front = 0usize;
+    let mut max_back = 0usize;
+    let mut min_front = 0usize;
+    let mut min_back = 0usize;
 
-    for i in 0..n {
-        // 移除窗口外的过期索引
-        if i >= fastk_period {
-            let window_start = i - fastk_period + 1;
-            while max_dq.front().map_or(false, |&j| j < window_start) {
-                max_dq.pop_front();
+    unsafe {
+        let high_ptr = high.as_ptr();
+        let low_ptr = low.as_ptr();
+        let close_ptr = close.as_ptr();
+        let fastk_ptr = fastk.as_mut_ptr();
+
+        for i in 0..n {
+            // 移除窗口外的过期索引
+            if i >= fastk_period {
+                let window_start = i - fastk_period + 1;
+                while max_front != max_back
+                    && *max_buf.get_unchecked(max_front & mask) < window_start
+                {
+                    max_front = max_front.wrapping_add(1);
+                }
+                while min_front != min_back
+                    && *min_buf.get_unchecked(min_front & mask) < window_start
+                {
+                    min_front = min_front.wrapping_add(1);
+                }
             }
-            while min_dq.front().map_or(false, |&j| j < window_start) {
-                min_dq.pop_front();
+            // 维护单调递减队列（最大 high）
+            while max_front != max_back
+                && *high_ptr.add(*max_buf.get_unchecked(max_back.wrapping_sub(1) & mask))
+                    <= *high_ptr.add(i)
+            {
+                max_back = max_back.wrapping_sub(1);
+            }
+            *max_buf.get_unchecked_mut(max_back & mask) = i;
+            max_back = max_back.wrapping_add(1);
+
+            // 维护单调递增队列（最小 low）
+            while min_front != min_back
+                && *low_ptr.add(*min_buf.get_unchecked(min_back.wrapping_sub(1) & mask))
+                    >= *low_ptr.add(i)
+            {
+                min_back = min_back.wrapping_sub(1);
+            }
+            *min_buf.get_unchecked_mut(min_back & mask) = i;
+            min_back = min_back.wrapping_add(1);
+
+            if i >= fastk_period - 1 {
+                let hh = *high_ptr.add(*max_buf.get_unchecked(max_front & mask));
+                let ll = *low_ptr.add(*min_buf.get_unchecked(min_front & mask));
+                let fk = if (hh - ll).abs() < f64::EPSILON {
+                    0.0
+                } else {
+                    (*close_ptr.add(i) - ll) / (hh - ll) * 100.0
+                };
+                *fastk_ptr.add(i + 1 - fastk_period) = fk;
             }
         }
-        // 维护单调递减队列（最大值）
-        while max_dq.back().map_or(false, |&j| high[j] <= high[i]) {
-            max_dq.pop_back();
-        }
-        max_dq.push_back(i);
-        // 维护单调递增队列（最小值）
-        while min_dq.back().map_or(false, |&j| low[j] >= low[i]) {
-            min_dq.pop_back();
-        }
-        min_dq.push_back(i);
-
-        if i >= fastk_period - 1 {
-            let hh = high[*max_dq.front().unwrap()];
-            let ll = low[*min_dq.front().unwrap()];
-            let fk = if (hh - ll).abs() < f64::EPSILON {
-                0.0
-            } else {
-                (close[i] - ll) / (hh - ll) * 100.0
-            };
-            fastk.push(fk);
-        }
-    }
+    } // end unsafe
 
     // Step 2: slowk = SMA(fastk, slowk_period)
     let slowk = sma(&fastk, slowk_period);

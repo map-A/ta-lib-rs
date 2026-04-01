@@ -8,12 +8,18 @@ pub fn sum(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period + 1;
-    let mut out = Vec::with_capacity(out_len);
-    let mut s: f64 = data[..period].iter().sum();
-    out.push(s);
-    for i in period..n {
-        s += data[i] - data[i - period];
-        out.push(s);
+    let mut out = vec![0.0f64; out_len];
+
+    unsafe {
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
+
+        let mut s: f64 = data[..period].iter().sum();
+        *out_ptr = s;
+        for i in period..n {
+            s += *data_ptr.add(i) - *data_ptr.add(i - period);
+            *out_ptr.add(i - period + 1) = s;
+        }
     }
     out
 }

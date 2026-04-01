@@ -1,10 +1,8 @@
-//! MININDEX — index of rolling minimum using a monotone deque (O(n)).
+//! MININDEX — index of rolling minimum using O(n) ring-buffer monotone deque.
 //!
 //! Returns the 0-based absolute index in the original array of the minimum
 //! value within each window, as `f64`.
 //! Output length = `n - period + 1` (lookback = period - 1).
-
-use std::collections::VecDeque;
 
 pub fn minindex(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
@@ -12,19 +10,39 @@ pub fn minindex(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period + 1;
-    let mut out = Vec::with_capacity(out_len);
-    let mut deque: VecDeque<usize> = VecDeque::new();
 
-    for i in 0..n {
-        while deque.front().map_or(false, |&j| i - j >= period) {
-            deque.pop_front();
-        }
-        while deque.back().map_or(false, |&j| data[j] > data[i]) {
-            deque.pop_back();
-        }
-        deque.push_back(i);
-        if i >= period - 1 {
-            out.push(*deque.front().unwrap() as f64);
+    let cap = period.next_power_of_two().max(4);
+    let mask = cap - 1;
+    let mut buf = vec![0usize; cap];
+    let mut front = 0usize;
+    let mut back = 0usize;
+
+    let mut out = vec![0.0f64; out_len];
+
+    unsafe {
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
+
+        for i in 0..n {
+            if i >= period {
+                let ws = i - period + 1;
+                while front != back && *buf.get_unchecked(front & mask) < ws {
+                    front = front.wrapping_add(1);
+                }
+            }
+            while front != back
+                && *data_ptr.add(*buf.get_unchecked(back.wrapping_sub(1) & mask))
+                    > *data_ptr.add(i)
+            {
+                back = back.wrapping_sub(1);
+            }
+            *buf.get_unchecked_mut(back & mask) = i;
+            back = back.wrapping_add(1);
+
+            if i >= period - 1 {
+                *out_ptr.add(i + 1 - period) =
+                    *buf.get_unchecked(front & mask) as f64;
+            }
         }
     }
     out
