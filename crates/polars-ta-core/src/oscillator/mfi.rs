@@ -54,73 +54,70 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
     }
 
     let inv3 = 1.0 / 3.0;
+    let out_len = n - period;
+    let mut out = vec![0.0f64; out_len];
 
-    // Pass 1: 预计算 tp 和有符号 money flow（正/负/零）
-    // 将 tp 和 mf 分离后，滑动求和循环只需读单个 mf 数组，提升缓存命中率
-    let mut tp = vec![0.0f64; n];
-    let mut mf = vec![0.0f64; n]; // mf[0] 未使用；mf[i] = ±tp[i]*vol[i]
+    // 使用大小为 period 的环形缓冲区替代 O(n) 的中间数组
+    // 对于典型的 period=14，缓冲区仅 224 字节，完全驻留在 L1 缓存中
+    // 同时省去独立的 tp[] 数组，单趟扫描即可完成全部计算
+    let mut pos_ring = vec![0.0f64; period];
+    let mut neg_ring = vec![0.0f64; period];
+    let mut pos_sum = 0.0f64;
+    let mut neg_sum = 0.0f64;
+    let mut ring_head = 0usize;
+
     unsafe {
         let h = high.as_ptr();
         let l = low.as_ptr();
         let c = close.as_ptr();
         let v = volume.as_ptr();
-        let tp_ptr = tp.as_mut_ptr();
-        let mf_ptr = mf.as_mut_ptr();
-        for i in 0..n {
-            let t = (*h.add(i) + *l.add(i) + *c.add(i)) * inv3;
-            *tp_ptr.add(i) = t;
-            if i > 0 {
-                let prev_t = *tp_ptr.add(i - 1);
-                let raw = t * *v.add(i);
-                if t > prev_t {
-                    *mf_ptr.add(i) = raw;
-                } else if t < prev_t {
-                    *mf_ptr.add(i) = -raw;
-                }
-            }
-        }
-    }
-
-    // Pass 2: 滑动求和（窗口 [1..=period] → [out_len..=n-1]）
-    let out_len = n - period;
-    let mut out = vec![0.0f64; out_len];
-
-    let mut pos_sum = 0.0f64;
-    let mut neg_sum = 0.0f64;
-
-    // 预热：累加窗口 1..=period
-    unsafe {
-        let mf_ptr = mf.as_ptr();
-        for i in 1..=period {
-            let v = *mf_ptr.add(i);
-            if v > 0.0 {
-                pos_sum += v;
-            } else if v < 0.0 {
-                neg_sum -= v;
-            }
-        }
-    }
-
-    // 写第一个输出，再滑动 out_len-1 次
-    out[0] = compute_mfi(pos_sum, neg_sum);
-    unsafe {
-        let mf_ptr = mf.as_ptr();
+        let pos_ptr = pos_ring.as_mut_ptr();
+        let neg_ptr = neg_ring.as_mut_ptr();
         let out_ptr = out.as_mut_ptr();
+
+        // tp[0] 没有前驱，不产生 money flow
+        let mut tp_prev = (*h + *l + *c) * inv3;
+
+        // 预热：填充窗口 [1..=period]（无分支）
+        for i in 1..=period {
+            let t = (*h.add(i) + *l.add(i) + *c.add(i)) * inv3;
+            let raw = t * *v.add(i);
+            let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
+            let signed = raw * sign as f64;
+            let pm = signed.max(0.0);
+            let nm = (-signed).max(0.0);
+            *pos_ptr.add(i - 1) = pm;
+            *neg_ptr.add(i - 1) = nm;
+            pos_sum += pm;
+            neg_sum += nm;
+            tp_prev = t;
+        }
+        // 预热后 tp_prev = tp[period]
+
+        *out_ptr = compute_mfi(pos_sum, neg_sum);
+
+        // 滑动循环：替换最旧元素，纯加减无分支
         for i in 0..out_len - 1 {
-            // 移出 mf[i+1]，移入 mf[i+period+1]
-            let out_mf = *mf_ptr.add(i + 1);
-            let in_mf = *mf_ptr.add(i + period + 1);
-            if out_mf > 0.0 {
-                pos_sum -= out_mf;
-            } else if out_mf < 0.0 {
-                neg_sum += out_mf;
-            }
-            if in_mf > 0.0 {
-                pos_sum += in_mf;
-            } else if in_mf < 0.0 {
-                neg_sum -= in_mf;
-            }
+            let j = i + period + 1;
+            let t = (*h.add(j) + *l.add(j) + *c.add(j)) * inv3;
+            let raw = t * *v.add(j);
+            let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
+            let signed = raw * sign as f64;
+            let pm = signed.max(0.0);
+            let nm = (-signed).max(0.0);
+
+            let old_pos = *pos_ptr.add(ring_head);
+            let old_neg = *neg_ptr.add(ring_head);
+            *pos_ptr.add(ring_head) = pm;
+            *neg_ptr.add(ring_head) = nm;
+
+            ring_head += 1;
+            if ring_head == period { ring_head = 0; }
+
+            pos_sum += pm - old_pos;
+            neg_sum += nm - old_neg;
             *out_ptr.add(i + 1) = compute_mfi(pos_sum, neg_sum);
+            tp_prev = t;
         }
     }
 

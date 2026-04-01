@@ -73,11 +73,26 @@ pub fn stoch(
         return empty;
     }
 
-    // Step 1: O(n) sliding min/max via ring-buffer monotone deques
-    let fastk_len = n - (fastk_period - 1);
-    let mut fastk = vec![0.0f64; fastk_len];
+    let out_len = n - lookback;
+    let mut out_slowk = vec![0.0f64; out_len];
+    let mut out_slowd = vec![0.0f64; out_len];
 
-    // 幂次方容量的环形缓冲区，位掩码替代取模
+    // 融合两个 SMA 过程：用小型环形缓冲区替代中间大数组 fastk[] 和 slowk[]
+    // sk_ring: 存储最近 slowk_period 个 fastk 值（滑动窗口）
+    // sd_ring: 存储最近 slowd_period 个 slowk 值（滑动窗口）
+    let mut sk_ring = vec![0.0f64; slowk_period];
+    let mut sd_ring = vec![0.0f64; slowd_period];
+    let mut sk_sum = 0.0f64;
+    let mut sd_sum = 0.0f64;
+    let mut sk_head = 0usize; // sk_ring 中最旧元素的位置
+    let mut sd_head = 0usize; // sd_ring 中最旧元素的位置
+    let sk_inv = 1.0 / slowk_period as f64;
+    let sd_inv = 1.0 / slowd_period as f64;
+    let mut fk_count = 0usize; // 已生成的 fastk 值数量
+    let mut sk_count = 0usize; // 已生成的 slowk 值数量
+    let mut out_idx = 0usize;
+
+    // Step 1: O(n) 单调双端队列，维护滑动最大/最小值
     let cap = fastk_period.next_power_of_two().max(4);
     let mask = cap - 1;
     let mut max_buf = vec![0usize; cap];
@@ -91,7 +106,8 @@ pub fn stoch(
         let high_ptr = high.as_ptr();
         let low_ptr = low.as_ptr();
         let close_ptr = close.as_ptr();
-        let fastk_ptr = fastk.as_mut_ptr();
+        let out_sk_ptr = out_slowk.as_mut_ptr();
+        let out_sd_ptr = out_slowd.as_mut_ptr();
 
         for i in 0..n {
             // 移除窗口外的过期索引
@@ -128,7 +144,7 @@ pub fn stoch(
             *min_buf.get_unchecked_mut(min_back & mask) = i;
             min_back = min_back.wrapping_add(1);
 
-            if i >= fastk_period - 1 {
+            if i + 1 >= fastk_period {
                 let hh = *high_ptr.add(*max_buf.get_unchecked(max_front & mask));
                 let ll = *low_ptr.add(*min_buf.get_unchecked(min_front & mask));
                 let fk = if (hh - ll).abs() < f64::EPSILON {
@@ -136,38 +152,50 @@ pub fn stoch(
                 } else {
                     (*close_ptr.add(i) - ll) / (hh - ll) * 100.0
                 };
-                *fastk_ptr.add(i + 1 - fastk_period) = fk;
+
+                // Step 2: 融合 SMA pass 1 — 将 fastk 滑入 sk_ring
+                if fk_count < slowk_period {
+                    // 填充阶段：直接写入
+                    *sk_ring.get_unchecked_mut(fk_count) = fk;
+                    sk_sum += fk;
+                } else {
+                    // 滑动阶段：替换最旧元素
+                    let old = *sk_ring.get_unchecked(sk_head);
+                    *sk_ring.get_unchecked_mut(sk_head) = fk;
+                    sk_sum += fk - old;
+                    sk_head += 1;
+                    if sk_head == slowk_period { sk_head = 0; }
+                }
+                fk_count += 1;
+
+                if fk_count >= slowk_period {
+                    let sk = sk_sum * sk_inv;
+
+                    // Step 3: 融合 SMA pass 2 — 将 slowk 滑入 sd_ring
+                    if sk_count < slowd_period {
+                        *sd_ring.get_unchecked_mut(sk_count) = sk;
+                        sd_sum += sk;
+                    } else {
+                        let old = *sd_ring.get_unchecked(sd_head);
+                        *sd_ring.get_unchecked_mut(sd_head) = sk;
+                        sd_sum += sk - old;
+                        sd_head += 1;
+                        if sd_head == slowd_period { sd_head = 0; }
+                    }
+                    sk_count += 1;
+
+                    if sk_count >= slowd_period {
+                        // slowk 对应的是与 slowd 同一时间点的那个值（ta-lib 约定）
+                        *out_sk_ptr.add(out_idx) = sk;
+                        *out_sd_ptr.add(out_idx) = sd_sum * sd_inv;
+                        out_idx += 1;
+                    }
+                }
             }
         }
-    } // end unsafe
-
-    // Step 2: slowk = SMA(fastk, slowk_period)
-    let slowk = sma(&fastk, slowk_period);
-
-    // Step 3: slowd = SMA(slowk, slowd_period)
-    let slowd = sma(&slowk, slowd_period);
-
-    // Trim slowk to match slowd length (ta-lib convention: both outputs same length)
-    let trim = slowd_period - 1;
-    let slowk = slowk[trim..].to_vec();
-    StochOutput { slowk, slowd }
-}
-
-/// Internal SMA helper: O(n) sliding sum with precomputed inverse.
-fn sma(data: &[f64], period: usize) -> Vec<f64> {
-    let n = data.len();
-    if period == 0 || n < period {
-        return vec![];
     }
-    let inv = 1.0 / period as f64;
-    let mut out = Vec::with_capacity(n - period + 1);
-    let mut sum: f64 = data[..period].iter().sum();
-    out.push(sum * inv);
-    for i in period..n {
-        sum += data[i] - data[i - period];
-        out.push(sum * inv);
-    }
-    out
+
+    StochOutput { slowk: out_slowk, slowd: out_slowd }
 }
 
 #[cfg(test)]
