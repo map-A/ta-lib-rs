@@ -132,7 +132,7 @@ DATASETS = {
 
 
 def _serialize_array(arr: np.ndarray) -> list:
-    return [None if np.isnan(v) else float(v) for v in arr]
+    return [None if (np.isnan(v) or np.isinf(v)) else float(v) for v in arr]
 
 
 def _write_golden(
@@ -874,7 +874,764 @@ def generate_midprice(output_dir: Path, period: int = 14):
 
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 
+
+# ─── Phase 2: Oscillators ────────────────────────────────────────────────────
+
+def _gen_single_close(name: str, talib_fn, output_dir: Path, period: int, talib_kwargs: dict = None):
+    """通用辅助：单 close 输入, 有 period 参数的指标."""
+    kwargs = talib_kwargs or {"timeperiod": period}
+    print(f"\n[{name.upper()}] {kwargs}")
+    data0 = make_normal_1000()
+    r0 = talib_fn(data0["close"], **kwargs)
+    lookback = _compute_lookback(r0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib_fn(data["close"], **kwargs)
+        _write_golden(output_dir, name, params, {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib_fn(bdata["close"], **kwargs)
+    _write_golden(output_dir, name, params, {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib_fn(sdata["close"], **kwargs)
+    _write_golden(output_dir, name, params, {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+def _gen_hilo_no_close(name: str, talib_fn, output_dir: Path, period: int):
+    """通用辅助：high+low 输入 (无 close), 有 period 参数."""
+    print(f"\n[{name.upper()}] period={period}")
+    data0 = make_normal_1000()
+    r0 = talib_fn(data0["high"], data0["low"], timeperiod=period)
+    lookback = _compute_lookback(r0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib_fn(data["high"], data["low"], timeperiod=period)
+        _write_golden(output_dir, name, params,
+                      {"high": data["high"], "low": data["low"]},
+                      {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib_fn(bdata["high"], bdata["low"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"high": bdata["high"], "low": bdata["low"]},
+                  {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib_fn(sdata["high"], sdata["low"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"high": sdata["high"], "low": sdata["low"]},
+                  {"values": result}, lookback, "boundary_short")
+
+
+def _gen_hlc(name: str, talib_fn, output_dir: Path, period: int):
+    """通用辅助：high+low+close 输入, 有 period 参数."""
+    print(f"\n[{name.upper()}] period={period}")
+    data0 = make_normal_1000()
+    r0 = talib_fn(data0["high"], data0["low"], data0["close"], timeperiod=period)
+    lookback = _compute_lookback(r0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib_fn(data["high"], data["low"], data["close"], timeperiod=period)
+        _write_golden(output_dir, name, params,
+                      {"high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib_fn(bdata["high"], bdata["low"], bdata["close"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"high": bdata["high"], "low": bdata["low"], "close": bdata["close"]},
+                  {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib_fn(sdata["high"], sdata["low"], sdata["close"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"high": sdata["high"], "low": sdata["low"], "close": sdata["close"]},
+                  {"values": result}, lookback, "boundary_short")
+
+
+def generate_mom(output_dir: Path, period: int = 10):
+    _gen_single_close("mom", talib.MOM, output_dir, period)
+
+
+def generate_roc(output_dir: Path, period: int = 10):
+    _gen_single_close("roc", talib.ROC, output_dir, period)
+
+
+def generate_rocp(output_dir: Path, period: int = 10):
+    _gen_single_close("rocp", talib.ROCP, output_dir, period)
+
+
+def generate_rocr(output_dir: Path, period: int = 10):
+    _gen_single_close("rocr", talib.ROCR, output_dir, period)
+
+
+def generate_rocr100(output_dir: Path, period: int = 10):
+    _gen_single_close("rocr100", talib.ROCR100, output_dir, period)
+
+
+def generate_cmo(output_dir: Path, period: int = 14):
+    _gen_single_close("cmo", talib.CMO, output_dir, period)
+
+
+def generate_apo(output_dir: Path, fast_period: int = 12, slow_period: int = 26):
+    print(f"\n[APO] fast={fast_period} slow={slow_period}")
+    data0 = make_normal_1000()
+    r0 = talib.APO(data0["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    lookback = _compute_lookback(r0)
+    params = {"fast": fast_period, "slow": slow_period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.APO(data["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+        _write_golden(output_dir, "apo", params, {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.APO(bdata["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    _write_golden(output_dir, "apo", params, {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.APO(sdata["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    _write_golden(output_dir, "apo", params, {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+def generate_ppo(output_dir: Path, fast_period: int = 12, slow_period: int = 26):
+    print(f"\n[PPO] fast={fast_period} slow={slow_period}")
+    data0 = make_normal_1000()
+    r0 = talib.PPO(data0["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    lookback = _compute_lookback(r0)
+    params = {"fast": fast_period, "slow": slow_period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.PPO(data["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+        _write_golden(output_dir, "ppo", params, {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.PPO(bdata["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    _write_golden(output_dir, "ppo", params, {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.PPO(sdata["close"], fastperiod=fast_period, slowperiod=slow_period, matype=0)
+    _write_golden(output_dir, "ppo", params, {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+def generate_trix(output_dir: Path, period: int = 5):
+    _gen_single_close("trix", talib.TRIX, output_dir, period)
+
+
+def generate_bop(output_dir: Path):
+    print(f"\n[BOP]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.BOP(data["open"], data["high"], data["low"], data["close"])
+        _write_golden(output_dir, "bop", params,
+                      {"open": data["open"], "high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_minus_dm(output_dir: Path, period: int = 14):
+    _gen_hilo_no_close("minus_dm", talib.MINUS_DM, output_dir, period)
+
+
+def generate_plus_dm(output_dir: Path, period: int = 14):
+    _gen_hilo_no_close("plus_dm", talib.PLUS_DM, output_dir, period)
+
+
+def generate_minus_di(output_dir: Path, period: int = 14):
+    _gen_hlc("minus_di", talib.MINUS_DI, output_dir, period)
+
+
+def generate_plus_di(output_dir: Path, period: int = 14):
+    _gen_hlc("plus_di", talib.PLUS_DI, output_dir, period)
+
+
+def generate_dx(output_dir: Path, period: int = 14):
+    _gen_hlc("dx", talib.DX, output_dir, period)
+
+
+def generate_adxr(output_dir: Path, period: int = 14):
+    _gen_hlc("adxr", talib.ADXR, output_dir, period)
+
+
+# ─── Phase 2: Statistics ─────────────────────────────────────────────────────
+
+def _gen_two_real(name: str, talib_fn, output_dir: Path, period: int):
+    """通用辅助：real0+real1 两输入, 有 period 参数."""
+    print(f"\n[{name.upper()}] period={period}")
+    data0 = make_normal_1000()
+    # 用 close 作 real0，high 作 real1（确定性配对）
+    r0 = talib_fn(data0["close"], data0["high"], timeperiod=period)
+    lookback = _compute_lookback(r0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib_fn(data["close"], data["high"], timeperiod=period)
+        _write_golden(output_dir, name, params,
+                      {"real0": data["close"], "real1": data["high"]},
+                      {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib_fn(bdata["close"], bdata["high"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"real0": bdata["close"], "real1": bdata["high"]},
+                  {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib_fn(sdata["close"], sdata["high"], timeperiod=period)
+    _write_golden(output_dir, name, params,
+                  {"real0": sdata["close"], "real1": sdata["high"]},
+                  {"values": result}, lookback, "boundary_short")
+
+
+def generate_beta(output_dir: Path, period: int = 5):
+    _gen_two_real("beta", talib.BETA, output_dir, period)
+
+
+def generate_correl(output_dir: Path, period: int = 30):
+    _gen_two_real("correl", talib.CORREL, output_dir, period)
+
+
+def generate_linearreg(output_dir: Path, period: int = 14):
+    _gen_single_close("linearreg", talib.LINEARREG, output_dir, period)
+
+
+def generate_linearreg_angle(output_dir: Path, period: int = 14):
+    _gen_single_close("linearreg_angle", talib.LINEARREG_ANGLE, output_dir, period)
+
+
+def generate_linearreg_intercept(output_dir: Path, period: int = 14):
+    _gen_single_close("linearreg_intercept", talib.LINEARREG_INTERCEPT, output_dir, period)
+
+
+def generate_linearreg_slope(output_dir: Path, period: int = 14):
+    _gen_single_close("linearreg_slope", talib.LINEARREG_SLOPE, output_dir, period)
+
+
+def generate_stddev(output_dir: Path, period: int = 5, nbdev: float = 1.0):
+    print(f"\n[STDDEV] period={period} nbdev={nbdev}")
+    data0 = make_normal_1000()
+    r0 = talib.STDDEV(data0["close"], timeperiod=period, nbdev=nbdev)
+    lookback = _compute_lookback(r0)
+    params = {"period": period, "nbdev": nbdev}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.STDDEV(data["close"], timeperiod=period, nbdev=nbdev)
+        _write_golden(output_dir, "stddev", params, {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.STDDEV(bdata["close"], timeperiod=period, nbdev=nbdev)
+    _write_golden(output_dir, "stddev", params, {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.STDDEV(sdata["close"], timeperiod=period, nbdev=nbdev)
+    _write_golden(output_dir, "stddev", params, {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+def generate_tsf(output_dir: Path, period: int = 14):
+    _gen_single_close("tsf", talib.TSF, output_dir, period)
+
+
+def generate_var(output_dir: Path, period: int = 5, nbdev: float = 1.0):
+    print(f"\n[VAR] period={period} nbdev={nbdev}")
+    data0 = make_normal_1000()
+    r0 = talib.VAR(data0["close"], timeperiod=period, nbdev=nbdev)
+    lookback = _compute_lookback(r0)
+    params = {"period": period, "nbdev": nbdev}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.VAR(data["close"], timeperiod=period, nbdev=nbdev)
+        _write_golden(output_dir, "var", params, {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.VAR(bdata["close"], timeperiod=period, nbdev=nbdev)
+    _write_golden(output_dir, "var", params, {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.VAR(sdata["close"], timeperiod=period, nbdev=nbdev)
+    _write_golden(output_dir, "var", params, {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+# ─── Phase 3: Price Transform ────────────────────────────────────────────────
+
+def generate_avgprice(output_dir: Path):
+    print(f"\n[AVGPRICE]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.AVGPRICE(data["open"], data["high"], data["low"], data["close"])
+        _write_golden(output_dir, "avgprice", params,
+                      {"open": data["open"], "high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_medprice(output_dir: Path):
+    print(f"\n[MEDPRICE]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.MEDPRICE(data["high"], data["low"])
+        _write_golden(output_dir, "medprice", params,
+                      {"high": data["high"], "low": data["low"]},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_typprice(output_dir: Path):
+    print(f"\n[TYPPRICE]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.TYPPRICE(data["high"], data["low"], data["close"])
+        _write_golden(output_dir, "typprice", params,
+                      {"high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_wclprice(output_dir: Path):
+    print(f"\n[WCLPRICE]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.WCLPRICE(data["high"], data["low"], data["close"])
+        _write_golden(output_dir, "wclprice", params,
+                      {"high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"values": result}, lookback, ds_name)
+
+
+# ─── Phase 3: Oscillator / Trend additions ────────────────────────────────────
+
+def generate_aroonosc(output_dir: Path, period: int = 14):
+    print(f"\n[AROONOSC] period={period}")
+    data0 = make_normal_1000()
+    r0 = talib.AROONOSC(data0["high"], data0["low"], timeperiod=period)
+    lookback = _compute_lookback(r0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.AROONOSC(data["high"], data["low"], timeperiod=period)
+        _write_golden(output_dir, "aroonosc", params,
+                      {"high": data["high"], "low": data["low"]},
+                      {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.AROONOSC(bdata["high"], bdata["low"], timeperiod=period)
+    _write_golden(output_dir, "aroonosc", params,
+                  {"high": bdata["high"], "low": bdata["low"]},
+                  {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.AROONOSC(sdata["high"], sdata["low"], timeperiod=period)
+    _write_golden(output_dir, "aroonosc", params,
+                  {"high": sdata["high"], "low": sdata["low"]},
+                  {"values": result}, lookback, "boundary_short")
+
+
+def generate_stochf(output_dir: Path, fastk_period: int = 5, fastd_period: int = 3):
+    print(f"\n[STOCHF] fastk={fastk_period} fastd={fastd_period}")
+    data0 = make_normal_1000()
+    fk0, fd0 = talib.STOCHF(data0["high"], data0["low"], data0["close"],
+                              fastk_period=fastk_period, fastd_period=fastd_period, fastd_matype=0)
+    lookback = _compute_lookback(fd0)
+    params = {"fastk": fastk_period, "fastd": fastd_period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        fk, fd = talib.STOCHF(data["high"], data["low"], data["close"],
+                               fastk_period=fastk_period, fastd_period=fastd_period, fastd_matype=0)
+        _write_golden(output_dir, "stochf", params,
+                      {"high": data["high"], "low": data["low"], "close": data["close"]},
+                      {"fastk": fk, "fastd": fd}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    fk, fd = talib.STOCHF(bdata["high"], bdata["low"], bdata["close"],
+                           fastk_period=fastk_period, fastd_period=fastd_period, fastd_matype=0)
+    _write_golden(output_dir, "stochf", params,
+                  {"high": bdata["high"], "low": bdata["low"], "close": bdata["close"]},
+                  {"fastk": fk, "fastd": fd}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    fk, fd = talib.STOCHF(sdata["high"], sdata["low"], sdata["close"],
+                           fastk_period=fastk_period, fastd_period=fastd_period, fastd_matype=0)
+    _write_golden(output_dir, "stochf", params,
+                  {"high": sdata["high"], "low": sdata["low"], "close": sdata["close"]},
+                  {"fastk": fk, "fastd": fd}, lookback, "boundary_short")
+
+
+def generate_macdext(output_dir: Path, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
+    print(f"\n[MACDEXT] fast={fast_period} slow={slow_period} signal={signal_period} (all EMA)")
+    data0 = make_normal_1000()
+    m0, s0, h0 = talib.MACDEXT(data0["close"], fastperiod=fast_period, fastmatype=1,
+                                 slowperiod=slow_period, slowmatype=1,
+                                 signalperiod=signal_period, signalmatype=1)
+    lookback = _compute_lookback(m0)
+    params = {"fast": fast_period, "slow": slow_period, "signal": signal_period, "matype": 1}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        m, s, h = talib.MACDEXT(data["close"], fastperiod=fast_period, fastmatype=1,
+                                  slowperiod=slow_period, slowmatype=1,
+                                  signalperiod=signal_period, signalmatype=1)
+        _write_golden(output_dir, "macdext", params,
+                      {"close": data["close"]},
+                      {"macd": m, "signal": s, "hist": h}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    m, s, h = talib.MACDEXT(bdata["close"], fastperiod=fast_period, fastmatype=1,
+                              slowperiod=slow_period, slowmatype=1,
+                              signalperiod=signal_period, signalmatype=1)
+    _write_golden(output_dir, "macdext", params,
+                  {"close": bdata["close"]},
+                  {"macd": m, "signal": s, "hist": h}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    m, s, h = talib.MACDEXT(sdata["close"], fastperiod=fast_period, fastmatype=1,
+                              slowperiod=slow_period, slowmatype=1,
+                              signalperiod=signal_period, signalmatype=1)
+    _write_golden(output_dir, "macdext", params,
+                  {"close": sdata["close"]},
+                  {"macd": m, "signal": s, "hist": h}, lookback, "boundary_short")
+
+
+def generate_macdfix(output_dir: Path, signal_period: int = 9):
+    print(f"\n[MACDFIX] signal={signal_period}")
+    data0 = make_normal_1000()
+    m0, s0, h0 = talib.MACDFIX(data0["close"], signalperiod=signal_period)
+    lookback = _compute_lookback(m0)
+    params = {"signal": signal_period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        m, s, h = talib.MACDFIX(data["close"], signalperiod=signal_period)
+        _write_golden(output_dir, "macdfix", params,
+                      {"close": data["close"]},
+                      {"macd": m, "signal": s, "hist": h}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    m, s, h = talib.MACDFIX(bdata["close"], signalperiod=signal_period)
+    _write_golden(output_dir, "macdfix", params,
+                  {"close": bdata["close"]},
+                  {"macd": m, "signal": s, "hist": h}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    m, s, h = talib.MACDFIX(sdata["close"], signalperiod=signal_period)
+    _write_golden(output_dir, "macdfix", params,
+                  {"close": sdata["close"]},
+                  {"macd": m, "signal": s, "hist": h}, lookback, "boundary_short")
+
+
+def generate_ma(output_dir: Path, period: int = 30, matype: int = 1):
+    print(f"\n[MA] period={period} matype={matype}")
+    data0 = make_normal_1000()
+    r0 = talib.MA(data0["close"], timeperiod=period, matype=matype)
+    lookback = _compute_lookback(r0)
+    params = {"period": period, "matype": matype}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.MA(data["close"], timeperiod=period, matype=matype)
+        _write_golden(output_dir, "ma", params,
+                      {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.MA(bdata["close"], timeperiod=period, matype=matype)
+    _write_golden(output_dir, "ma", params,
+                  {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.MA(sdata["close"], timeperiod=period, matype=matype)
+    _write_golden(output_dir, "ma", params,
+                  {"close": sdata["close"]}, {"values": result}, lookback, "boundary_short")
+
+
+def generate_sarext(output_dir: Path):
+    print(f"\n[SAREXT] (default params)")
+    data0 = make_normal_1000()
+    r0 = talib.SAREXT(data0["high"], data0["low"])
+    lookback = _compute_lookback(r0)
+    params = {}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib.SAREXT(data["high"], data["low"])
+        _write_golden(output_dir, "sarext", params,
+                      {"high": data["high"], "low": data["low"]},
+                      {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = talib.SAREXT(bdata["high"], bdata["low"])
+    _write_golden(output_dir, "sarext", params,
+                  {"high": bdata["high"], "low": bdata["low"]},
+                  {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    result = talib.SAREXT(sdata["high"], sdata["low"])
+    _write_golden(output_dir, "sarext", params,
+                  {"high": sdata["high"], "low": sdata["low"]},
+                  {"values": result}, lookback, "boundary_short")
+
+
+# ─── Phase 3: Math Transform ─────────────────────────────────────────────────
+
+def _gen_math_transform(name: str, talib_fn, output_dir: Path, normalize: bool = False):
+    """通用辅助：单输入 close，无参数，lookback=0."""
+    print(f"\n[{name.upper()}]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        close = data["close"]
+        if normalize:
+            # 归一化到 [-1,1] 范围，适用于 ACOS/ASIN
+            max_val = np.nanmax(np.abs(close))
+            if max_val > 0:
+                close = close / max_val
+        result = talib_fn(close)
+        _write_golden(output_dir, name, params,
+                      {"close": close},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_acos(output_dir: Path):
+    _gen_math_transform("acos", talib.ACOS, output_dir, normalize=True)
+
+
+def generate_asin(output_dir: Path):
+    _gen_math_transform("asin", talib.ASIN, output_dir, normalize=True)
+
+
+def generate_atan(output_dir: Path):
+    _gen_math_transform("atan", talib.ATAN, output_dir)
+
+
+def generate_ceil(output_dir: Path):
+    _gen_math_transform("ceil", talib.CEIL, output_dir)
+
+
+def generate_cos(output_dir: Path):
+    _gen_math_transform("cos", talib.COS, output_dir)
+
+
+def generate_cosh(output_dir: Path):
+    _gen_math_transform("cosh", talib.COSH, output_dir)
+
+
+def generate_exp(output_dir: Path):
+    _gen_math_transform("exp", talib.EXP, output_dir)
+
+
+def generate_floor(output_dir: Path):
+    _gen_math_transform("floor", talib.FLOOR, output_dir)
+
+
+def generate_ln(output_dir: Path):
+    _gen_math_transform("ln", talib.LN, output_dir)
+
+
+def generate_log10(output_dir: Path):
+    _gen_math_transform("log10", talib.LOG10, output_dir)
+
+
+def generate_sin(output_dir: Path):
+    _gen_math_transform("sin", talib.SIN, output_dir)
+
+
+def generate_sinh(output_dir: Path):
+    _gen_math_transform("sinh", talib.SINH, output_dir)
+
+
+def generate_sqrt(output_dir: Path):
+    _gen_math_transform("sqrt", talib.SQRT, output_dir)
+
+
+def generate_tan(output_dir: Path):
+    _gen_math_transform("tan", talib.TAN, output_dir)
+
+
+def generate_tanh(output_dir: Path):
+    _gen_math_transform("tanh", talib.TANH, output_dir)
+
+
+# --- Phase 3: Math Ops -------------------------------------------------------
+
+def _gen_two_real_no_period(name: str, talib_fn, output_dir: Path):
+    """Two-input (real0=close, real1=high), no period, lookback=0."""
+    print(f"\n[{name.upper()}]")
+    lookback = 0
+    params = {}
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = talib_fn(data["close"], data["high"])
+        _write_golden(output_dir, name, params,
+                      {"real0": data["close"], "real1": data["high"]},
+                      {"values": result}, lookback, ds_name)
+
+
+def generate_add(output_dir: Path):
+    _gen_two_real_no_period("add", talib.ADD, output_dir)
+
+
+def generate_div(output_dir: Path):
+    _gen_two_real_no_period("div", talib.DIV, output_dir)
+
+
+def generate_mult(output_dir: Path):
+    _gen_two_real_no_period("mult", talib.MULT, output_dir)
+
+
+def generate_sub(output_dir: Path):
+    _gen_two_real_no_period("sub", talib.SUB, output_dir)
+
+
+def generate_max(output_dir: Path, period: int = 30):
+    _gen_single_close("max", lambda c, **kw: talib.MAX(c, **kw), output_dir, period)
+
+
+def generate_min(output_dir: Path, period: int = 30):
+    _gen_single_close("min", lambda c, **kw: talib.MIN(c, **kw), output_dir, period)
+
+
+def generate_sum(output_dir: Path, period: int = 30):
+    _gen_single_close("sum", lambda c, **kw: talib.SUM(c, **kw), output_dir, period)
+
+
+def generate_maxindex(output_dir: Path, period: int = 30):
+    """MAXINDEX returns int array with leading zeros (not NaN); handle specially."""
+    print(f"\n[MAXINDEX] period={period}")
+    lookback = period - 1  # ta-lib MAXINDEX has int output, no NaN; lookback is period-1
+    params = {"period": period}
+
+    def _run(data):
+        raw = talib.MAXINDEX(data["close"], timeperiod=period).astype(float)
+        # Insert NaN for leading lookback positions so _serialize_array handles them
+        result = np.empty(len(raw))
+        result[:lookback] = np.nan
+        result[lookback:] = raw[lookback:]
+        return result
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = _run(data)
+        _write_golden(output_dir, "maxindex", params,
+                      {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = _run(bdata)
+    _write_golden(output_dir, "maxindex", params,
+                  {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    _write_golden(output_dir, "maxindex", params,
+                  {"close": sdata["close"]},
+                  {"values": np.full(len(sdata["close"]), np.nan)}, lookback, "boundary_short")
+
+
+def generate_minindex(output_dir: Path, period: int = 30):
+    """MININDEX returns int array with leading zeros (not NaN); handle specially."""
+    print(f"\n[MININDEX] period={period}")
+    lookback = period - 1
+    params = {"period": period}
+
+    def _run(data):
+        raw = talib.MININDEX(data["close"], timeperiod=period).astype(float)
+        result = np.empty(len(raw))
+        result[:lookback] = np.nan
+        result[lookback:] = raw[lookback:]
+        return result
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        result = _run(data)
+        _write_golden(output_dir, "minindex", params,
+                      {"close": data["close"]}, {"values": result}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    result = _run(bdata)
+    _write_golden(output_dir, "minindex", params,
+                  {"close": bdata["close"]}, {"values": result}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    _write_golden(output_dir, "minindex", params,
+                  {"close": sdata["close"]},
+                  {"values": np.full(len(sdata["close"]), np.nan)}, lookback, "boundary_short")
+
+
+def generate_minmax(output_dir: Path, period: int = 30):
+    print(f"\n[MINMAX] period={period}")
+    data0 = make_normal_1000()
+    mn0, mx0 = talib.MINMAX(data0["close"], timeperiod=period)
+    lookback = _compute_lookback(mn0)
+    params = {"period": period}
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        mn, mx = talib.MINMAX(data["close"], timeperiod=period)
+        _write_golden(output_dir, "minmax", params,
+                      {"close": data["close"]},
+                      {"min": mn, "max": mx}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    mn, mx = talib.MINMAX(bdata["close"], timeperiod=period)
+    _write_golden(output_dir, "minmax", params,
+                  {"close": bdata["close"]}, {"min": mn, "max": mx}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    _write_golden(output_dir, "minmax", params,
+                  {"close": sdata["close"]},
+                  {"min": np.array([]), "max": np.array([])}, lookback, "boundary_short")
+
+
+def generate_minmaxindex(output_dir: Path, period: int = 30):
+    print(f"\n[MINMAXINDEX] period={period}")
+    lookback = period - 1  # int output, no NaN; lookback is period-1
+    params = {"period": period}
+
+    def _run(data):
+        mi_raw, xi_raw = talib.MINMAXINDEX(data["close"], timeperiod=period)
+        mi = np.empty(len(mi_raw), dtype=float)
+        xi = np.empty(len(xi_raw), dtype=float)
+        mi[:lookback] = np.nan
+        xi[:lookback] = np.nan
+        mi[lookback:] = mi_raw[lookback:].astype(float)
+        xi[lookback:] = xi_raw[lookback:].astype(float)
+        return mi, xi
+
+    for ds_name, make_fn in DATASETS.items():
+        data = make_fn()
+        mi, xi = _run(data)
+        _write_golden(output_dir, "minmaxindex", params,
+                      {"close": data["close"]},
+                      {"minidx": mi, "maxidx": xi}, lookback, ds_name)
+
+    bdata = make_boundary_exact(lookback)
+    mi, xi = _run(bdata)
+    _write_golden(output_dir, "minmaxindex", params,
+                  {"close": bdata["close"]}, {"minidx": mi, "maxidx": xi}, lookback, "boundary_exact")
+
+    sdata = make_boundary_short(lookback)
+    n = len(sdata["close"])
+    _write_golden(output_dir, "minmaxindex", params,
+                  {"close": sdata["close"]},
+                  {"minidx": np.full(n, np.nan), "maxidx": np.full(n, np.nan)}, lookback, "boundary_short")
+
+
 GENERATORS = {
+    # ── Phase 1 ───────────────────────────────────────────────────────────────
     "sma":      lambda out_dir: generate_sma(out_dir, period=20),
     "ema":      lambda out_dir: generate_ema(out_dir, period=20),
     "wma":      lambda out_dir: generate_wma(out_dir, period=20),
@@ -898,11 +1655,79 @@ GENERATORS = {
     "trange":   lambda out_dir: generate_trange(out_dir),
     "atr":      lambda out_dir: generate_atr(out_dir, period=14),
     "natr":     lambda out_dir: generate_natr(out_dir, period=14),
+    # ── Phase 2: Trend ────────────────────────────────────────────────────────
     "trima":    lambda out_dir: generate_trima(out_dir, period=14),
     "t3":       lambda out_dir: generate_t3(out_dir, period=5, vfactor=0.7),
     "kama":     lambda out_dir: generate_kama(out_dir, period=10),
     "midpoint": lambda out_dir: generate_midpoint(out_dir, period=14),
     "midprice": lambda out_dir: generate_midprice(out_dir, period=14),
+    # ── Phase 2: Oscillators ─────────────────────────────────────────────────
+    "mom":           lambda out_dir: generate_mom(out_dir, period=10),
+    "roc":           lambda out_dir: generate_roc(out_dir, period=10),
+    "rocp":          lambda out_dir: generate_rocp(out_dir, period=10),
+    "rocr":          lambda out_dir: generate_rocr(out_dir, period=10),
+    "rocr100":       lambda out_dir: generate_rocr100(out_dir, period=10),
+    "cmo":           lambda out_dir: generate_cmo(out_dir, period=14),
+    "apo":           lambda out_dir: generate_apo(out_dir, fast_period=12, slow_period=26),
+    "ppo":           lambda out_dir: generate_ppo(out_dir, fast_period=12, slow_period=26),
+    "trix":          lambda out_dir: generate_trix(out_dir, period=5),
+    "bop":           lambda out_dir: generate_bop(out_dir),
+    "minus_dm":      lambda out_dir: generate_minus_dm(out_dir, period=14),
+    "plus_dm":       lambda out_dir: generate_plus_dm(out_dir, period=14),
+    "minus_di":      lambda out_dir: generate_minus_di(out_dir, period=14),
+    "plus_di":       lambda out_dir: generate_plus_di(out_dir, period=14),
+    "dx":            lambda out_dir: generate_dx(out_dir, period=14),
+    "adxr":          lambda out_dir: generate_adxr(out_dir, period=14),
+    # ── Phase 2: Statistics ───────────────────────────────────────────────────
+    "beta":                lambda out_dir: generate_beta(out_dir, period=5),
+    "correl":              lambda out_dir: generate_correl(out_dir, period=30),
+    "linearreg":           lambda out_dir: generate_linearreg(out_dir, period=14),
+    "linearreg_angle":     lambda out_dir: generate_linearreg_angle(out_dir, period=14),
+    "linearreg_intercept": lambda out_dir: generate_linearreg_intercept(out_dir, period=14),
+    "linearreg_slope":     lambda out_dir: generate_linearreg_slope(out_dir, period=14),
+    "stddev":              lambda out_dir: generate_stddev(out_dir, period=5, nbdev=1.0),
+    "tsf":                 lambda out_dir: generate_tsf(out_dir, period=14),
+    "var":                 lambda out_dir: generate_var(out_dir, period=5, nbdev=1.0),
+    # ── Phase 3: Price Transform ──────────────────────────────────────────────
+    "avgprice":  lambda out_dir: generate_avgprice(out_dir),
+    "medprice":  lambda out_dir: generate_medprice(out_dir),
+    "typprice":  lambda out_dir: generate_typprice(out_dir),
+    "wclprice":  lambda out_dir: generate_wclprice(out_dir),
+    # ── Phase 3: Math Transform ───────────────────────────────────────────────
+    "acos":      lambda out_dir: generate_acos(out_dir),
+    "asin":      lambda out_dir: generate_asin(out_dir),
+    "atan":      lambda out_dir: generate_atan(out_dir),
+    "ceil":      lambda out_dir: generate_ceil(out_dir),
+    "cos":       lambda out_dir: generate_cos(out_dir),
+    "cosh":      lambda out_dir: generate_cosh(out_dir),
+    "exp":       lambda out_dir: generate_exp(out_dir),
+    "floor":     lambda out_dir: generate_floor(out_dir),
+    "ln":        lambda out_dir: generate_ln(out_dir),
+    "log10":     lambda out_dir: generate_log10(out_dir),
+    "sin":       lambda out_dir: generate_sin(out_dir),
+    "sinh":      lambda out_dir: generate_sinh(out_dir),
+    "sqrt":      lambda out_dir: generate_sqrt(out_dir),
+    "tan":       lambda out_dir: generate_tan(out_dir),
+    "tanh":      lambda out_dir: generate_tanh(out_dir),
+    # ── Phase 3: Math Ops ─────────────────────────────────────────────────────
+    "add":          lambda out_dir: generate_add(out_dir),
+    "div":          lambda out_dir: generate_div(out_dir),
+    "mult":         lambda out_dir: generate_mult(out_dir),
+    "sub":          lambda out_dir: generate_sub(out_dir),
+    "max":          lambda out_dir: generate_max(out_dir, period=30),
+    "min":          lambda out_dir: generate_min(out_dir, period=30),
+    "sum":          lambda out_dir: generate_sum(out_dir, period=30),
+    "maxindex":     lambda out_dir: generate_maxindex(out_dir, period=30),
+    "minindex":     lambda out_dir: generate_minindex(out_dir, period=30),
+    "minmax":       lambda out_dir: generate_minmax(out_dir, period=30),
+    "minmaxindex":  lambda out_dir: generate_minmaxindex(out_dir, period=30),
+    # ── Phase 3: Oscillator / Trend additions ─────────────────────────────────
+    "aroonosc": lambda out_dir: generate_aroonosc(out_dir, period=14),
+    "stochf":   lambda out_dir: generate_stochf(out_dir, fastk_period=5, fastd_period=3),
+    "macdext":  lambda out_dir: generate_macdext(out_dir, fast_period=12, slow_period=26, signal_period=9),
+    "macdfix":  lambda out_dir: generate_macdfix(out_dir, signal_period=9),
+    "ma":       lambda out_dir: generate_ma(out_dir, period=30, matype=1),
+    "sarext":   lambda out_dir: generate_sarext(out_dir),
 }
 
 

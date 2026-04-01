@@ -30,8 +30,14 @@
 //! - [`oscillator`] — RSI, Stoch, StochRSI, CCI, Williams %R, ULTOSC, Aroon, MFI
 //! - [`volume`] — OBV, AD, ADOSC
 //! - [`volatility`] — ATR, NATR, TRange
+//! - [`price_transform`] — AVGPRICE, MEDPRICE, TYPPRICE, WCLPRICE
+//! - [`math_transform`] — ACOS, ASIN, ATAN, CEIL, COS, COSH, EXP, FLOOR, LN, LOG10, SIN, SINH, SQRT, TAN, TANH
+//! - [`math_ops`] — ADD, DIV, MULT, SUB, MAX, MIN, SUM, MAXINDEX, MININDEX, MINMAX, MINMAXINDEX
 
+pub mod math_ops;
+pub mod math_transform;
 pub mod oscillator;
+pub mod price_transform;
 pub mod statistic;
 pub mod trend;
 pub mod volatility;
