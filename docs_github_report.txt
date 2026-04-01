@@ -1,0 +1,72 @@
+polars-ta Docs/CI/GitHub Setup Report
+======================================
+Generated: $(date)
+
+## Completed Tasks
+
+### Task 1: Cargo Doc Improvements
+- Improved math_transform/mod.rs: full module-level docs, parameters table, example
+- Improved math_ops/*.rs (11 files): add.rs, div.rs, sub.rs, mult.rs, max.rs, min.rs,
+  sum.rs, maxindex.rs, minindex.rs, minmax.rs, minmaxindex.rs
+- Priority indicators (ema, wma, dema, tema, macd, rsi, bbands, cci, willr, stoch, mfi, obv, atr)
+  already had comprehensive docs — verified and confirmed
+
+### Task 2: Bilingual README
+- README.md: updated with CI badge, indicators badge, wiki section
+- README.zh.md: created — full Chinese translation with same structure
+
+### Task 3: compare_all.sh + generate_report.py
+- Added --report flag to scripts/compare_all.sh
+  (writes to polars-ta-report.md in project root)
+- Created scripts/generate_report.py:
+  - 158-indicator catalogue (91 implemented + 67 planned CDL/HT)
+  - Parses Criterion bencher output + ta-lib JSON
+  - Status icons: ✅ ≥95%, ⚠️ 80-95%, ❌ <80%, ⏳ not implemented
+  NOTE: Output path changed from /tmp to project root per security policy
+
+### Task 4: GitHub Actions
+- .github/workflows/ci.yml: runs golden tests, builds docs, uploads rustdoc artifact
+- .github/workflows/bench.yml: manual dispatch, quick/full mode, uploads bench results
+
+### Task 5: Wiki Content
+- wiki/Home.md
+- wiki/Quick-Start.md
+- wiki/Indicator-Reference.md
+- wiki/Performance.md
+- wiki/Contributing.md
+
+### Task 6: GitHub Push
+- Remote: https://github.com/map-A/ta-lib-rs.git (added)
+- Commit: fd4cbc0 "docs: bilingual README, GitHub Actions CI, wiki content..."
+- PUSH FAILED: requires GitHub authentication credentials
+  To push: configure credentials then run:
+    cd /Users/mm/Documents/ta-lib-rs
+    git push -u origin master
+  Options:
+    - gh auth login  (GitHub CLI)
+    - git config credential.helper store + enter PAT when prompted
+    - SSH: git remote set-url origin git@github.com:map-A/ta-lib-rs.git
+
+### Task 7: Performance Comparison Table
+- Already present in README.md under "## Performance" section
+- Full 158-indicator table requires running: ./scripts/compare_all.sh --report
+
+## Test Results
+- cargo test --package polars-ta-core: 279 + 37 = 316 tests PASS
+- cargo doc --no-deps --package polars-ta-core: CLEAN (no warnings)
+
+## Files Changed (39 total)
+NEW:
+  .github/workflows/ci.yml
+  .github/workflows/bench.yml
+  README.zh.md
+  scripts/generate_report.py
+  wiki/Home.md  wiki/Quick-Start.md  wiki/Indicator-Reference.md
+  wiki/Performance.md  wiki/Contributing.md
+
+MODIFIED:
+  README.md (+badges, +wiki section)
+  scripts/compare_all.sh (+--report flag, output dir to project root)
+  crates/polars-ta-core/src/math_transform/mod.rs
+  crates/polars-ta-core/src/math_ops/{add,div,sub,mult,max,min,sum,
+    maxindex,minindex,minmax,minmaxindex}.rs

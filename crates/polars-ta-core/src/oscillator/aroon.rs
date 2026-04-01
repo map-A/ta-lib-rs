@@ -74,58 +74,48 @@ pub fn aroon(high: &[f64], low: &[f64], period: usize) -> AroonOutput {
     let mut aroon_up   = vec![0.0f64; out_len];
     let mut aroon_down = vec![0.0f64; out_len];
 
-    unsafe {
-        let high_ptr = high.as_ptr();
-        let low_ptr  = low.as_ptr();
-        let up_ptr   = aroon_up.as_mut_ptr();
-        let dn_ptr   = aroon_down.as_mut_ptr();
+    for i in 0..n {
+        let hi = high[i];
+        let lo = low[i];
 
-        for i in 0..n {
-            let hi = *high_ptr.add(i);
-            let lo = *low_ptr.add(i);
-
-            // Maintain max deque (non-increasing high values; prefer RECENT on ties → pop when back_val <= hi)
-            while max_f != max_b {
-                let back_idx = max_buf[(max_b.wrapping_sub(1)) & mask];
-                if *high_ptr.add(back_idx) <= hi {
-                    max_b = max_b.wrapping_sub(1);
-                } else {
-                    break;
-                }
+        while max_f != max_b {
+            let back_idx = max_buf[(max_b.wrapping_sub(1)) & mask];
+            if high[back_idx] <= hi {
+                max_b = max_b.wrapping_sub(1);
+            } else {
+                break;
             }
-            max_buf[max_b & mask] = i;
-            max_b = max_b.wrapping_add(1);
+        }
+        max_buf[max_b & mask] = i;
+        max_b = max_b.wrapping_add(1);
 
-            // Maintain min deque (non-decreasing low values; prefer RECENT on ties → pop when back_val >= lo)
-            while min_f != min_b {
-                let back_idx = min_buf[(min_b.wrapping_sub(1)) & mask];
-                if *low_ptr.add(back_idx) >= lo {
-                    min_b = min_b.wrapping_sub(1);
-                } else {
-                    break;
-                }
+        while min_f != min_b {
+            let back_idx = min_buf[(min_b.wrapping_sub(1)) & mask];
+            if low[back_idx] >= lo {
+                min_b = min_b.wrapping_sub(1);
+            } else {
+                break;
             }
-            min_buf[min_b & mask] = i;
-            min_b = min_b.wrapping_add(1);
+        }
+        min_buf[min_b & mask] = i;
+        min_b = min_b.wrapping_add(1);
 
-            if i >= period {
-                // Evict front elements outside window [i-period, i]
-                let window_start = i - period;
-                while max_f != max_b && max_buf[max_f & mask] < window_start {
-                    max_f = max_f.wrapping_add(1);
-                }
-                while min_f != min_b && min_buf[min_f & mask] < window_start {
-                    min_f = min_f.wrapping_add(1);
-                }
-
-                let out_i = i - period;
-                let hh_idx = max_buf[max_f & mask];
-                let ll_idx = min_buf[min_f & mask];
-                let bars_since_hh = i - hh_idx;
-                let bars_since_ll = i - ll_idx;
-                *up_ptr.add(out_i) = (period - bars_since_hh) as f64 * inv_period;
-                *dn_ptr.add(out_i) = (period - bars_since_ll) as f64 * inv_period;
+        if i >= period {
+            let window_start = i - period;
+            while max_f != max_b && max_buf[max_f & mask] < window_start {
+                max_f = max_f.wrapping_add(1);
             }
+            while min_f != min_b && min_buf[min_f & mask] < window_start {
+                min_f = min_f.wrapping_add(1);
+            }
+
+            let out_i = i - period;
+            let hh_idx = max_buf[max_f & mask];
+            let ll_idx = min_buf[min_f & mask];
+            let bars_since_hh = i - hh_idx;
+            let bars_since_ll = i - ll_idx;
+            aroon_up[out_i] = (period - bars_since_hh) as f64 * inv_period;
+            aroon_down[out_i] = (period - bars_since_ll) as f64 * inv_period;
         }
     }
 

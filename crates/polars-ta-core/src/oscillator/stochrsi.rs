@@ -84,49 +84,41 @@ pub fn stochrsi(
     let mut min_front = 0usize;
     let mut min_back = 0usize;
 
-    unsafe {
-        let rp = rsi_values.as_ptr();
-        let fk_ptr = fastk_raw.as_mut_ptr();
+    for i in 0..n {
+        if i >= fastk_period {
+            let ws = i - fastk_period + 1;
+            while max_front != max_back && max_buf[max_front & mask] < ws {
+                max_front = max_front.wrapping_add(1);
+            }
+            while min_front != min_back && min_buf[min_front & mask] < ws {
+                min_front = min_front.wrapping_add(1);
+            }
+        }
+        while max_front != max_back
+            && rsi_values[max_buf[max_back.wrapping_sub(1) & mask]] <= rsi_values[i]
+        {
+            max_back = max_back.wrapping_sub(1);
+        }
+        max_buf[max_back & mask] = i;
+        max_back = max_back.wrapping_add(1);
 
-        for i in 0..n {
-            // Evict expired indices from fronts
-            if i >= fastk_period {
-                let ws = i - fastk_period + 1;
-                while max_front != max_back && *max_buf.get_unchecked(max_front & mask) < ws {
-                    max_front = max_front.wrapping_add(1);
-                }
-                while min_front != min_back && *min_buf.get_unchecked(min_front & mask) < ws {
-                    min_front = min_front.wrapping_add(1);
-                }
-            }
-            // Maintain monotone decreasing deque for max
-            while max_front != max_back
-                && *rp.add(*max_buf.get_unchecked(max_back.wrapping_sub(1) & mask)) <= *rp.add(i)
-            {
-                max_back = max_back.wrapping_sub(1);
-            }
-            *max_buf.get_unchecked_mut(max_back & mask) = i;
-            max_back = max_back.wrapping_add(1);
+        while min_front != min_back
+            && rsi_values[min_buf[min_back.wrapping_sub(1) & mask]] >= rsi_values[i]
+        {
+            min_back = min_back.wrapping_sub(1);
+        }
+        min_buf[min_back & mask] = i;
+        min_back = min_back.wrapping_add(1);
 
-            // Maintain monotone increasing deque for min
-            while min_front != min_back
-                && *rp.add(*min_buf.get_unchecked(min_back.wrapping_sub(1) & mask)) >= *rp.add(i)
-            {
-                min_back = min_back.wrapping_sub(1);
-            }
-            *min_buf.get_unchecked_mut(min_back & mask) = i;
-            min_back = min_back.wrapping_add(1);
-
-            if i >= fastk_period - 1 {
-                let hh = *rp.add(*max_buf.get_unchecked(max_front & mask));
-                let ll = *rp.add(*min_buf.get_unchecked(min_front & mask));
-                let fk = if (hh - ll).abs() < f64::EPSILON {
-                    0.0
-                } else {
-                    (*rp.add(i) - ll) / (hh - ll) * 100.0
-                };
-                *fk_ptr.add(i + 1 - fastk_period) = fk;
-            }
+        if i >= fastk_period - 1 {
+            let hh = rsi_values[max_buf[max_front & mask]];
+            let ll = rsi_values[min_buf[min_front & mask]];
+            let fk = if (hh - ll).abs() < f64::EPSILON {
+                0.0
+            } else {
+                (rsi_values[i] - ll) / (hh - ll) * 100.0
+            };
+            fastk_raw[i + 1 - fastk_period] = fk;
         }
     }
 
@@ -151,13 +143,9 @@ fn sma(data: &[f64], period: usize) -> Vec<f64> {
     let inv = 1.0 / period as f64;
     let mut sum: f64 = data[..period].iter().sum();
     out[0] = sum * inv;
-    unsafe {
-        let dp = data.as_ptr();
-        let op = out.as_mut_ptr();
-        for i in 1..out_len {
-            sum += *dp.add(i + period - 1) - *dp.add(i - 1);
-            *op.add(i) = sum * inv;
-        }
+    for i in 1..out_len {
+        sum += data[i + period - 1] - data[i - 1];
+        out[i] = sum * inv;
     }
     out
 }

@@ -102,94 +102,72 @@ pub fn stoch(
     let mut min_front = 0usize;
     let mut min_back = 0usize;
 
-    unsafe {
-        let high_ptr = high.as_ptr();
-        let low_ptr = low.as_ptr();
-        let close_ptr = close.as_ptr();
-        let out_sk_ptr = out_slowk.as_mut_ptr();
-        let out_sd_ptr = out_slowd.as_mut_ptr();
-
-        for i in 0..n {
-            // 移除窗口外的过期索引
-            if i >= fastk_period {
-                let window_start = i - fastk_period + 1;
-                while max_front != max_back
-                    && *max_buf.get_unchecked(max_front & mask) < window_start
-                {
-                    max_front = max_front.wrapping_add(1);
-                }
-                while min_front != min_back
-                    && *min_buf.get_unchecked(min_front & mask) < window_start
-                {
-                    min_front = min_front.wrapping_add(1);
-                }
+    for i in 0..n {
+        if i >= fastk_period {
+            let window_start = i - fastk_period + 1;
+            while max_front != max_back && max_buf[max_front & mask] < window_start {
+                max_front = max_front.wrapping_add(1);
             }
-            // 维护单调递减队列（最大 high）
-            while max_front != max_back
-                && *high_ptr.add(*max_buf.get_unchecked(max_back.wrapping_sub(1) & mask))
-                    <= *high_ptr.add(i)
-            {
-                max_back = max_back.wrapping_sub(1);
+            while min_front != min_back && min_buf[min_front & mask] < window_start {
+                min_front = min_front.wrapping_add(1);
             }
-            *max_buf.get_unchecked_mut(max_back & mask) = i;
-            max_back = max_back.wrapping_add(1);
+        }
+        while max_front != max_back
+            && high[max_buf[max_back.wrapping_sub(1) & mask]] <= high[i]
+        {
+            max_back = max_back.wrapping_sub(1);
+        }
+        max_buf[max_back & mask] = i;
+        max_back = max_back.wrapping_add(1);
 
-            // 维护单调递增队列（最小 low）
-            while min_front != min_back
-                && *low_ptr.add(*min_buf.get_unchecked(min_back.wrapping_sub(1) & mask))
-                    >= *low_ptr.add(i)
-            {
-                min_back = min_back.wrapping_sub(1);
+        while min_front != min_back
+            && low[min_buf[min_back.wrapping_sub(1) & mask]] >= low[i]
+        {
+            min_back = min_back.wrapping_sub(1);
+        }
+        min_buf[min_back & mask] = i;
+        min_back = min_back.wrapping_add(1);
+
+        if i + 1 >= fastk_period {
+            let hh = high[max_buf[max_front & mask]];
+            let ll = low[min_buf[min_front & mask]];
+            let fk = if (hh - ll).abs() < f64::EPSILON {
+                0.0
+            } else {
+                (close[i] - ll) / (hh - ll) * 100.0
+            };
+
+            if fk_count < slowk_period {
+                sk_ring[fk_count] = fk;
+                sk_sum += fk;
+            } else {
+                let old = sk_ring[sk_head];
+                sk_ring[sk_head] = fk;
+                sk_sum += fk - old;
+                sk_head += 1;
+                if sk_head == slowk_period { sk_head = 0; }
             }
-            *min_buf.get_unchecked_mut(min_back & mask) = i;
-            min_back = min_back.wrapping_add(1);
+            fk_count += 1;
 
-            if i + 1 >= fastk_period {
-                let hh = *high_ptr.add(*max_buf.get_unchecked(max_front & mask));
-                let ll = *low_ptr.add(*min_buf.get_unchecked(min_front & mask));
-                let fk = if (hh - ll).abs() < f64::EPSILON {
-                    0.0
+            if fk_count >= slowk_period {
+                let sk = sk_sum * sk_inv;
+
+                if sk_count < slowd_period {
+                    sd_ring[sk_count] = sk;
+                    sd_sum += sk;
                 } else {
-                    (*close_ptr.add(i) - ll) / (hh - ll) * 100.0
-                };
-
-                // Step 2: 融合 SMA pass 1 — 将 fastk 滑入 sk_ring
-                if fk_count < slowk_period {
-                    // 填充阶段：直接写入
-                    *sk_ring.get_unchecked_mut(fk_count) = fk;
-                    sk_sum += fk;
-                } else {
-                    // 滑动阶段：替换最旧元素
-                    let old = *sk_ring.get_unchecked(sk_head);
-                    *sk_ring.get_unchecked_mut(sk_head) = fk;
-                    sk_sum += fk - old;
-                    sk_head += 1;
-                    if sk_head == slowk_period { sk_head = 0; }
+                    let old = sd_ring[sd_head];
+                    sd_ring[sd_head] = sk;
+                    sd_sum += sk - old;
+                    sd_head += 1;
+                    if sd_head == slowd_period { sd_head = 0; }
                 }
-                fk_count += 1;
+                sk_count += 1;
 
-                if fk_count >= slowk_period {
-                    let sk = sk_sum * sk_inv;
-
-                    // Step 3: 融合 SMA pass 2 — 将 slowk 滑入 sd_ring
-                    if sk_count < slowd_period {
-                        *sd_ring.get_unchecked_mut(sk_count) = sk;
-                        sd_sum += sk;
-                    } else {
-                        let old = *sd_ring.get_unchecked(sd_head);
-                        *sd_ring.get_unchecked_mut(sd_head) = sk;
-                        sd_sum += sk - old;
-                        sd_head += 1;
-                        if sd_head == slowd_period { sd_head = 0; }
-                    }
-                    sk_count += 1;
-
-                    if sk_count >= slowd_period {
-                        // slowk 对应的是与 slowd 同一时间点的那个值（ta-lib 约定）
-                        *out_sk_ptr.add(out_idx) = sk;
-                        *out_sd_ptr.add(out_idx) = sd_sum * sd_inv;
-                        out_idx += 1;
-                    }
+                if sk_count >= slowd_period {
+                    out_slowk[out_idx] = sk;
+                    out_slowd[out_idx] = sd_sum * sd_inv;
+                    out_idx += 1;
                 }
             }
         }

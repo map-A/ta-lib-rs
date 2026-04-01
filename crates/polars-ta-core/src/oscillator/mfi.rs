@@ -57,66 +57,58 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
     let out_len = n - period;
     let mut out = vec![0.0f64; out_len];
 
-    // 使用 2^k 大小的环形缓冲区（bitmask 替代 if 重置，消除热路径分支）
-    let cap = period.next_power_of_two();
-    let mask = cap - 1;
-    let mut pos_ring = vec![0.0f64; cap];
-    let mut neg_ring = vec![0.0f64; cap];
+    // 环形缓冲区大小恰好为 period，使用 if 重置（分支预测器
+    // 每 period 次才触发一次，成本可忽略；避免了 next_power_of_two
+    // 导致 cap > period 时槽位未初始化被错误读为 0 的 bug）
+    let mut pos_ring = vec![0.0f64; period];
+    let mut neg_ring = vec![0.0f64; period];
     let mut pos_sum = 0.0f64;
     let mut neg_sum = 0.0f64;
     let mut ring_head = 0usize;
 
-    unsafe {
-        let h = high.as_ptr();
-        let l = low.as_ptr();
-        let c = close.as_ptr();
-        let v = volume.as_ptr();
-        let pos_ptr = pos_ring.as_mut_ptr();
-        let neg_ptr = neg_ring.as_mut_ptr();
-        let out_ptr = out.as_mut_ptr();
+    // tp[0] 没有前驱，不产生 money flow
+    let mut tp_prev = (high[0] + low[0] + close[0]) * inv3;
 
-        // tp[0] 没有前驱，不产生 money flow
-        let mut tp_prev = (*h + *l + *c) * inv3;
+    // 预热：填充窗口 [1..=period]
+    for i in 1..=period {
+        let t = (high[i] + low[i] + close[i]) * inv3;
+        let raw = t * volume[i];
+        let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
+        let signed = raw * sign as f64;
+        let pm = signed.max(0.0);
+        let nm = (-signed).max(0.0);
+        pos_ring[i - 1] = pm;
+        neg_ring[i - 1] = nm;
+        pos_sum += pm;
+        neg_sum += nm;
+        tp_prev = t;
+    }
 
-        // 预热：填充窗口 [1..=period]（无分支）
-        for i in 1..=period {
-            let t = (*h.add(i) + *l.add(i) + *c.add(i)) * inv3;
-            let raw = t * *v.add(i);
-            let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
-            let signed = raw * sign as f64;
-            let pm = signed.max(0.0);
-            let nm = (-signed).max(0.0);
-            *pos_ptr.add((i - 1) & mask) = pm;
-            *neg_ptr.add((i - 1) & mask) = nm;
-            pos_sum += pm;
-            neg_sum += nm;
-            tp_prev = t;
+    out[0] = compute_mfi(pos_sum, neg_sum);
+
+    // 滑动循环：替换最旧元素，纯加减
+    for i in 0..out_len - 1 {
+        let j = i + period + 1;
+        let t = (high[j] + low[j] + close[j]) * inv3;
+        let raw = t * volume[j];
+        let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
+        let signed = raw * sign as f64;
+        let pm = signed.max(0.0);
+        let nm = (-signed).max(0.0);
+
+        let old_pos = pos_ring[ring_head];
+        let old_neg = neg_ring[ring_head];
+        pos_ring[ring_head] = pm;
+        neg_ring[ring_head] = nm;
+        ring_head += 1;
+        if ring_head >= period {
+            ring_head = 0;
         }
 
-        *out_ptr = compute_mfi(pos_sum, neg_sum);
-
-        // 滑动循环：bitmask 替代 if 重置，热路径无条件分支
-        for i in 0..out_len - 1 {
-            let j = i + period + 1;
-            let t = (*h.add(j) + *l.add(j) + *c.add(j)) * inv3;
-            let raw = t * *v.add(j);
-            let sign = (t > tp_prev) as i64 - (t < tp_prev) as i64;
-            let signed = raw * sign as f64;
-            let pm = signed.max(0.0);
-            let nm = (-signed).max(0.0);
-
-            let slot = ring_head & mask;
-            let old_pos = *pos_ptr.add(slot);
-            let old_neg = *neg_ptr.add(slot);
-            *pos_ptr.add(slot) = pm;
-            *neg_ptr.add(slot) = nm;
-            ring_head = ring_head.wrapping_add(1);
-
-            pos_sum += pm - old_pos;
-            neg_sum += nm - old_neg;
-            *out_ptr.add(i + 1) = compute_mfi(pos_sum, neg_sum);
-            tp_prev = t;
-        }
+        pos_sum += pm - old_pos;
+        neg_sum += nm - old_neg;
+        out[i + 1] = compute_mfi(pos_sum, neg_sum);
+        tp_prev = t;
     }
 
     out
