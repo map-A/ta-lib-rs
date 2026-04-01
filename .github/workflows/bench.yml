@@ -1,0 +1,42 @@
+name: Performance Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      quick:
+        description: "Quick mode (faster, fewer samples)"
+        default: "true"
+        type: boolean
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install Python deps
+        run: uv pip install ta-lib --system || echo "ta-lib not available on CI"
+
+      - name: Run Rust benchmark
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ inputs.quick }}" = "true" ]; then
+            EXTRA_ARGS="--measurement-time 2 --warm-up-time 1 --sample-size 10"
+          fi
+          cargo bench --package polars-ta-verify --bench bench_vs_talib \
+            -- --output-format bencher $EXTRA_ARGS \
+            2>/dev/null > rust_bench.txt || true
+          cat rust_bench.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: rust_bench.txt

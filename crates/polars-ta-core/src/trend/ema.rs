@@ -61,26 +61,14 @@ pub fn ema(data: &[f64], period: usize) -> Vec<f64> {
     // SMA 种子：前 period 个值的均值
     let seed: f64 = data[..period].iter().sum::<f64>() / period as f64;
 
-    let mut out = Vec::with_capacity(out_len);
-    // Safety: we write exactly out_len elements (seed + out_len-1 EMA values).
-    // data[period..n] has n-period = out_len-1 elements; src advances exactly that many times.
-    // dst starts at out[0] and advances out_len times total, all within the allocation.
-    unsafe {
-        out.set_len(out_len);
-        let dst_base = out.as_mut_ptr();
-        *dst_base = seed;
+    let mut out = vec![0.0f64; out_len];
+    out[0] = seed;
 
-        let mut prev = seed;
-        let mut src = data.as_ptr().add(period);
-        let mut dst = dst_base.add(1);
-        let end = data.as_ptr().add(n);
-        while src < end {
-            let cur = *src * k + prev * k1;
-            *dst = cur;
-            prev = cur;
-            src = src.add(1);
-            dst = dst.add(1);
-        }
+    let mut prev = seed;
+    for (i, &x) in data[period..].iter().enumerate() {
+        let cur = x * k + prev * k1;
+        out[i + 1] = cur;
+        prev = cur;
     }
 
     out

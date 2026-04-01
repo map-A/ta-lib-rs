@@ -85,7 +85,6 @@ pub fn adosc(
 
     let mut fast_prev = ad_acc;
     let mut slow_prev = ad_acc;
-    let mut out = Vec::with_capacity(out_len);
 
     // 预热阶段（i = 1..slow_period-1）：更新两条 EMA，不产生输出
     // 消除热路径中的分支判断
@@ -100,35 +99,18 @@ pub fn adosc(
         slow_prev = ad_acc * ks + slow_prev * ks1;
     }
 
-    // 热路径（i = max(1, slow_period-1)..n）：raw pointer reads，消除 4 路数组边界检查
-    // Safety: high, low, close, volume all have n elements. hot_start <= n (slow_period <= n).
-    // src pointers each advance n-hot_start times within their respective allocations.
-    // dst advances count times within out's allocation.
     let hot_start = warmup_end.max(1);
     let count = n - hot_start;
-    unsafe {
-        out.set_len(count);
-        let mut h_ptr = high.as_ptr().add(hot_start);
-        let mut l_ptr = low.as_ptr().add(hot_start);
-        let mut c_ptr = close.as_ptr().add(hot_start);
-        let mut v_ptr = volume.as_ptr().add(hot_start);
-        let mut dst = out.as_mut_ptr();
-        let end = high.as_ptr().add(n);
-        while h_ptr < end {
-            let h = *h_ptr;
-            let l = *l_ptr;
-            let range = h - l;
-            let clv = if range == 0.0 { 0.0 } else { (2.0 * *c_ptr - h - l) / range };
-            ad_acc += clv * *v_ptr;
-            fast_prev = ad_acc * kf + fast_prev * kf1;
-            slow_prev = ad_acc * ks + slow_prev * ks1;
-            *dst = fast_prev - slow_prev;
-            h_ptr = h_ptr.add(1);
-            l_ptr = l_ptr.add(1);
-            c_ptr = c_ptr.add(1);
-            v_ptr = v_ptr.add(1);
-            dst = dst.add(1);
-        }
+    let mut out = vec![0.0f64; count];
+    for (j, i) in (hot_start..n).enumerate() {
+        let h = high[i];
+        let l = low[i];
+        let range = h - l;
+        let clv = if range == 0.0 { 0.0 } else { (2.0 * close[i] - h - l) / range };
+        ad_acc += clv * volume[i];
+        fast_prev = ad_acc * kf + fast_prev * kf1;
+        slow_prev = ad_acc * ks + slow_prev * ks1;
+        out[j] = fast_prev - slow_prev;
     }
 
     out

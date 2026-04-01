@@ -26,17 +26,13 @@ pub fn stddev(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
 
     out[0] = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
 
-    unsafe {
-        let dp = data.as_ptr();
-        let op = out.as_mut_ptr();
-        for i in 1..out_len {
-            let yo = *dp.add(i - 1);
-            let yn = *dp.add(i + period - 1);
-            sum += yn - yo;
-            sum_sq += yn * yn - yo * yo;
-            let v = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
-            *op.add(i) = v;
-        }
+    for i in 1..out_len {
+        let yo = data[i - 1];
+        let yn = data[i + period - 1];
+        sum += yn - yo;
+        sum_sq += yn * yn - yo * yo;
+        let v = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
+        out[i] = v;
     }
 
     out

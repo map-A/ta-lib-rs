@@ -1,7 +1,11 @@
-//! MAXINDEX — index of rolling maximum using O(n) ring-buffer monotone deque.
+//! MAXINDEX — Index of Rolling Maximum
+//!
+//! 滑动窗口最大值的位置索引，使用单调递减双端队列实现 O(n) 复杂度。
 //!
 //! Returns the 0-based absolute index in the original array of the maximum
-//! value within each window, as `f64`.
+//! value within each window, returned as `f64` to match ta-lib's convention.
+//! Numerically identical to ta-lib's `TA_MAXINDEX`.
+//!
 //! Output length = `n - period + 1` (lookback = period - 1).
 
 pub fn maxindex(data: &[f64], period: usize) -> Vec<f64> {
@@ -19,30 +23,23 @@ pub fn maxindex(data: &[f64], period: usize) -> Vec<f64> {
 
     let mut out = vec![0.0f64; out_len];
 
-    unsafe {
-        let data_ptr = data.as_ptr();
-        let out_ptr = out.as_mut_ptr();
+    for i in 0..n {
+        if i >= period {
+            let ws = i - period + 1;
+            while front != back && buf[front & mask] < ws {
+                front = front.wrapping_add(1);
+            }
+        }
+        while front != back
+            && data[buf[back.wrapping_sub(1) & mask]] < data[i]
+        {
+            back = back.wrapping_sub(1);
+        }
+        buf[back & mask] = i;
+        back = back.wrapping_add(1);
 
-        for i in 0..n {
-            if i >= period {
-                let ws = i - period + 1;
-                while front != back && *buf.get_unchecked(front & mask) < ws {
-                    front = front.wrapping_add(1);
-                }
-            }
-            while front != back
-                && *data_ptr.add(*buf.get_unchecked(back.wrapping_sub(1) & mask))
-                    < *data_ptr.add(i)
-            {
-                back = back.wrapping_sub(1);
-            }
-            *buf.get_unchecked_mut(back & mask) = i;
-            back = back.wrapping_add(1);
-
-            if i >= period - 1 {
-                *out_ptr.add(i + 1 - period) =
-                    *buf.get_unchecked(front & mask) as f64;
-            }
+        if i >= period - 1 {
+            out[i + 1 - period] = buf[front & mask] as f64;
         }
     }
     out

@@ -62,21 +62,9 @@ pub fn dema(data: &[f64], period: usize) -> Vec<f64> {
     debug_assert_eq!(ema1_aligned.len(), ema2.len());
 
     let out_len = ema2.len();
-    let mut out = Vec::with_capacity(out_len);
-    // Safety: ema1_aligned and ema2 both have out_len elements (asserted above).
-    // dst advances exactly out_len times within the allocation.
-    unsafe {
-        out.set_len(out_len);
-        let mut p1 = ema1_aligned.as_ptr();
-        let mut p2 = ema2.as_ptr();
-        let mut dst = out.as_mut_ptr();
-        for _ in 0..out_len {
-            *dst = 2.0 * *p1 - *p2;
-            p1 = p1.add(1);
-            p2 = p2.add(1);
-            dst = dst.add(1);
-        }
-    }
+    let out: Vec<f64> = ema1_aligned.iter().zip(ema2.iter())
+        .map(|(&a, &b)| 2.0 * a - b)
+        .collect();
     out
 }
 

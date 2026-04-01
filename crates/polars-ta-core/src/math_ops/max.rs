@@ -1,6 +1,40 @@
-//! MAX — rolling maximum using O(n) ring-buffer monotone deque.
+//! MAX — Rolling Maximum
 //!
-//! Output length = `n - period + 1` (lookback = period - 1).
+//! 滑动窗口最大值，使用单调递减双端队列实现 O(n) 复杂度。
+//!
+//! Finds the highest value in each rolling window using an O(n) monotone
+//! deque algorithm. Numerically identical to ta-lib's `TA_MAX`.
+//!
+//! # Algorithm
+//!
+//! Maintains a monotone decreasing deque of indices. For each new element:
+//! 1. Pop expired indices (outside current window) from the front
+//! 2. Pop indices with smaller values from the back (they can never be the max)
+//! 3. Push current index to the back
+//! 4. Front of deque always holds the index of the window maximum
+//!
+//! # Parameters
+//!
+//! - `data`   — input series
+//! - `period` — window length (≥ 1)
+//!
+//! # Output
+//!
+//! - Length = `data.len() - (period - 1)` (lookback = period - 1)
+//! - Returns empty `Vec` when `data.len() < period`
+//!
+//! # Example
+//!
+//! ```rust
+//! use polars_ta_core::math_ops::max;
+//!
+//! let data = vec![3.0, 1.0, 2.0, 5.0, 4.0];
+//! let result = max(&data, 3);
+//! assert_eq!(result.len(), 3);
+//! assert!((result[0] - 3.0).abs() < 1e-10);  // max(3,1,2)
+//! assert!((result[1] - 5.0).abs() < 1e-10);  // max(1,2,5)
+//! assert!((result[2] - 5.0).abs() < 1e-10);  // max(2,5,4)
+//! ```
 
 pub fn max(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
@@ -18,32 +52,25 @@ pub fn max(data: &[f64], period: usize) -> Vec<f64> {
 
     let mut out = vec![0.0f64; out_len];
 
-    unsafe {
-        let data_ptr = data.as_ptr();
-        let out_ptr = out.as_mut_ptr();
+    for i in 0..n {
+        // 移除滑出窗口的过期下标
+        if i >= period {
+            let ws = i - period + 1;
+            while front != back && buf[front & mask] < ws {
+                front = front.wrapping_add(1);
+            }
+        }
+        // 维护单调递减（移除所有小于当前值的尾部下标）
+        while front != back
+            && data[buf[back.wrapping_sub(1) & mask]] < data[i]
+        {
+            back = back.wrapping_sub(1);
+        }
+        buf[back & mask] = i;
+        back = back.wrapping_add(1);
 
-        for i in 0..n {
-            // 移除滑出窗口的过期下标
-            if i >= period {
-                let ws = i - period + 1;
-                while front != back && *buf.get_unchecked(front & mask) < ws {
-                    front = front.wrapping_add(1);
-                }
-            }
-            // 维护单调递减（移除所有小于当前值的尾部下标）
-            while front != back
-                && *data_ptr.add(*buf.get_unchecked(back.wrapping_sub(1) & mask))
-                    < *data_ptr.add(i)
-            {
-                back = back.wrapping_sub(1);
-            }
-            *buf.get_unchecked_mut(back & mask) = i;
-            back = back.wrapping_add(1);
-
-            if i >= period - 1 {
-                *out_ptr.add(i + 1 - period) =
-                    *data_ptr.add(*buf.get_unchecked(front & mask));
-            }
+        if i >= period - 1 {
+            out[i + 1 - period] = data[buf[front & mask]];
         }
     }
     out

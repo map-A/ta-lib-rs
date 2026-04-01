@@ -47,50 +47,39 @@ pub fn kama(data: &[f64], period: usize) -> Vec<f64> {
 
     // 初始化波动性累加和
     let mut vol_sum = 0.0f64;
-    unsafe {
-        let ptr = data.as_ptr();
-        for k in 1..=period {
-            vol_sum += (*ptr.add(k) - *ptr.add(k - 1)).abs();
-        }
+    for k in 1..=period {
+        vol_sum += (data[k] - data[k - 1]).abs();
     }
 
     let mut prev_kama = data[period - 1];
 
-    unsafe {
-        let dp = data.as_ptr();
-        let op = out.as_mut_ptr();
+    let main_len = out_len.saturating_sub(1);
+    for i in 0..main_len {
+        let idx = period + i;
+        let cur = data[idx];
+        let old = data[i];
 
-        // 分开最后一步避免 i < out_len-1 分支
-        let main_len = out_len.saturating_sub(1);
-        for i in 0..main_len {
-            let idx = period + i;
-            let cur = *dp.add(idx);
-            let old = *dp.add(i);
+        let direction = (cur - old).abs();
+        let inv_vol = if vol_sum > 0.0 { 1.0 / vol_sum } else { 0.0 };
+        let er = direction * inv_vol;
+        let sc = er * sc_diff + slow_sc;
+        let cur_kama = prev_kama + sc * sc * (cur - prev_kama);
+        out[i] = cur_kama;
+        prev_kama = cur_kama;
 
-            let direction = (cur - old).abs();
-            let inv_vol = if vol_sum > 0.0 { 1.0 / vol_sum } else { 0.0 };
-            let er = direction * inv_vol;
-            let sc = er * sc_diff + slow_sc;
-            let cur_kama = prev_kama + sc * sc * (cur - prev_kama);
-            *op.add(i) = cur_kama;
-            prev_kama = cur_kama;
-
-            // 复用 cur/old，避免内存重载
-            let old_diff = (*dp.add(i + 1) - old).abs();
-            let new_diff = (*dp.add(idx + 1) - cur).abs();
-            vol_sum = (vol_sum - old_diff + new_diff).max(0.0);
-        }
-        // 最后一个元素
-        if out_len > 0 {
-            let i = out_len - 1;
-            let cur = *dp.add(period + i);
-            let old = *dp.add(i);
-            let direction = (cur - old).abs();
-            let inv_vol = if vol_sum > 0.0 { 1.0 / vol_sum } else { 0.0 };
-            let er = direction * inv_vol;
-            let sc = er * sc_diff + slow_sc;
-            *op.add(i) = prev_kama + sc * sc * (cur - prev_kama);
-        }
+        let old_diff = (data[i + 1] - old).abs();
+        let new_diff = (data[idx + 1] - cur).abs();
+        vol_sum = (vol_sum - old_diff + new_diff).max(0.0);
+    }
+    if out_len > 0 {
+        let i = out_len - 1;
+        let cur = data[period + i];
+        let old = data[i];
+        let direction = (cur - old).abs();
+        let inv_vol = if vol_sum > 0.0 { 1.0 / vol_sum } else { 0.0 };
+        let er = direction * inv_vol;
+        let sc = er * sc_diff + slow_sc;
+        out[i] = prev_kama + sc * sc * (cur - prev_kama);
     }
     out
 }

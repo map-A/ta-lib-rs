@@ -73,21 +73,14 @@ pub fn wma(data: &[f64], period: usize) -> Vec<f64> {
 
     let mut out = vec![0.0f64; out_len];
 
-    // SAFETY: 所有偏移均在 [0, n) 和 [0, out_len) 内，n 已验证 ≥ period
-    unsafe {
-        let data_ptr = data.as_ptr();
-        let out_ptr = out.as_mut_ptr();
+    out[0] = wma_sum * inv_denom;
 
-        *out_ptr = wma_sum * inv_denom;
-
-        // 滑动更新：仅用加减运算，无乘法
-        for i in 1..out_len {
-            let new_val = *data_ptr.add(lookback + i);
-            let old_val = *data_ptr.add(i - 1);
-            wma_sum = wma_sum - running_sum + new_val * period as f64;
-            running_sum += new_val - old_val;
-            *out_ptr.add(i) = wma_sum * inv_denom;
-        }
+    for i in 1..out_len {
+        let new_val = data[lookback + i];
+        let old_val = data[i - 1];
+        wma_sum = wma_sum - running_sum + new_val * period as f64;
+        running_sum += new_val - old_val;
+        out[i] = wma_sum * inv_denom;
     }
 
     out

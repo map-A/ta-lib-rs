@@ -53,31 +53,18 @@ pub fn ad(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> 
         return vec![];
     }
 
-    // 单次遍历：直接累积到输出，避免两阶段（写中间数组 + 前缀求和）的双重内存访问。
-    // 原始指针消除边界检查，与 ta-lib 的 C 单循环结构对齐。
-    //
-    // SAFETY: set_len 后循环对每个索引恰好写入一次，读取前所有位置均已初始化。
-    let mut out = Vec::with_capacity(n);
-    unsafe { out.set_len(n) };
-
+    let mut out = vec![0.0_f64; n];
     let mut acc = 0.0_f64;
-    unsafe {
-        let hp = high.as_ptr();
-        let lp = low.as_ptr();
-        let cp = close.as_ptr();
-        let vp = volume.as_ptr();
-        let op = out.as_mut_ptr() as *mut f64;
-        for i in 0..n {
-            let h = *hp.add(i);
-            let l = *lp.add(i);
-            let c = *cp.add(i);
-            let v = *vp.add(i);
-            let hl = h - l;
-            if hl != 0.0 {
-                acc += (2.0 * c - h - l) * v / hl;
-            }
-            *op.add(i) = acc;
+    for i in 0..n {
+        let h = high[i];
+        let l = low[i];
+        let c = close[i];
+        let v = volume[i];
+        let hl = h - l;
+        if hl != 0.0 {
+            acc += (2.0 * c - h - l) * v / hl;
         }
+        out[i] = acc;
     }
 
     out

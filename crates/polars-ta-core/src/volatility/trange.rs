@@ -59,16 +59,13 @@ pub fn trange(high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
     let c = &close[..out_len];
 
     for i in 0..out_len {
-        // 安全：i < out_len，h/l/c 均长度为 out_len
-        unsafe {
-            let hi = *h.get_unchecked(i);
-            let li = *l.get_unchecked(i);
-            let ci = *c.get_unchecked(i);
-            let hl = hi - li;
-            let hc = (hi - ci).abs();
-            let lc = (li - ci).abs();
-            *out.get_unchecked_mut(i) = hl.max(hc).max(lc);
-        }
+        let hi = h[i];
+        let li = l[i];
+        let ci = c[i];
+        let hl = hi - li;
+        let hc = (hi - ci).abs();
+        let lc = (li - ci).abs();
+        out[i] = hl.max(hc).max(lc);
     }
 
     out

@@ -32,17 +32,13 @@ pub fn var(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
     let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
     out[0] = v;
 
-    unsafe {
-        let dp = data.as_ptr();
-        let op = out.as_mut_ptr();
-        for i in 1..out_len {
-            let yo = *dp.add(i - 1);
-            let yn = *dp.add(i + period - 1);
-            sum += yn - yo;
-            sum_sq += yn * yn - yo * yo;
-            let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
-            *op.add(i) = v;
-        }
+    for i in 1..out_len {
+        let yo = data[i - 1];
+        let yn = data[i + period - 1];
+        sum += yn - yo;
+        sum_sq += yn * yn - yo * yo;
+        let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
+        out[i] = v;
     }
 
     out

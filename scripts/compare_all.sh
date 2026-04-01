@@ -17,6 +17,7 @@
 #   ./scripts/compare_all.sh --quick               # quick mode (~1-2 min)
 #   ./scripts/compare_all.sh --indicator=sma       # single indicator
 #   ./scripts/compare_all.sh --output-dir=results/
+#   ./scripts/compare_all.sh --report              # generate Markdown report
 
 set -euo pipefail
 
@@ -25,11 +26,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
-OUTPUT_DIR="${RESULTS_DIR:-/tmp/polars-ta-bench}"
+OUTPUT_DIR="${RESULTS_DIR:-polars-ta-bench}"
 INDICATOR="all"
 QUICK=0
 SIZE=1000000
 BENCH_EXTRA_ARGS=""
+REPORT=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -37,6 +39,7 @@ for arg in "$@"; do
     --output-dir=*) OUTPUT_DIR="${arg#--output-dir=}" ;;
     --quick) QUICK=1 ;;
     --size=*) SIZE="${arg#--size=}" ;;
+    --report) REPORT=1 ;;
   esac
 done
 
@@ -114,3 +117,20 @@ echo ""
 echo "  HTML criterion report: open target/criterion/report/index.html"
 echo ""
 echo "✅ Comparison complete. Full results in: $OUTPUT_DIR/"
+
+# ── Step 4 (optional): Generate Markdown report ───────────────────────────────
+if [ "$REPORT" = "1" ]; then
+  echo ""
+  echo "Step 4: Generating 158-indicator Markdown report..."
+  REPORT_FILE="$REPO_ROOT/polars-ta-report.md"
+  TALIB_ARG_RPT=""
+  if [ -n "$TALIB_RESULTS" ] && [ -f "$TALIB_RESULTS" ]; then
+    TALIB_ARG_RPT="--talib-json $TALIB_RESULTS"
+  fi
+  "$PYTHON" "$REPO_ROOT/scripts/generate_report.py" \
+    --rust-bench "$OUTPUT_DIR/rust_bench.txt" \
+    $TALIB_ARG_RPT \
+    --output "$REPORT_FILE" \
+    --size "$SIZE"
+  echo "  → Markdown report: $REPORT_FILE"
+fi

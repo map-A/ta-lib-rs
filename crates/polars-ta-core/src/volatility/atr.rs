@@ -61,7 +61,7 @@ pub fn atr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
     }
 
     let out_len = n - period;
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0f64; out_len];
 
     // 种子：前 period 个 TR 的算术平均
     let seed: f64 = tr[..period].iter().sum::<f64>() / period as f64;
@@ -74,22 +74,13 @@ pub fn atr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
     // Safety: tr has tr.len() >= period elements (checked above).
     // tr[period..] has tr.len()-period = out_len-1 elements; src advances exactly that many times.
     // dst starts at out[0] and advances out_len times within the allocation.
-    unsafe {
-        out.set_len(out_len);
-        let dst_base = out.as_mut_ptr();
-        *dst_base = seed;
+    out[0] = seed;
 
-        let mut prev = seed;
-        let mut src = tr.as_ptr().add(period);
-        let mut dst = dst_base.add(1);
-        let end = tr.as_ptr().add(tr.len());
-        while src < end {
-            let cur = prev * k_wilder + *src * inv_p;
-            *dst = cur;
-            prev = cur;
-            src = src.add(1);
-            dst = dst.add(1);
-        }
+    let mut prev = seed;
+    for (i, &tr_val) in tr[period..].iter().enumerate() {
+        let cur = prev * k_wilder + tr_val * inv_p;
+        out[i + 1] = cur;
+        prev = cur;
     }
 
     out

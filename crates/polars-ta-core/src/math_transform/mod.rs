@@ -1,6 +1,50 @@
-//! Math Transform indicators — element-wise application of standard math functions.
-//! All functions have lookback=0 (output length = input length).
-//! NaN inputs propagate NaN outputs automatically via IEEE 754 arithmetic.
+//! Math Transform — Element-wise Mathematical Functions
+//!
+//! 数学变换 — 对价格序列逐元素应用标准数学函数。
+//!
+//! All 15 functions operate element-wise: `output[i] = f(input[i])`.
+//! Lookback = 0, so output length always equals input length.
+//! NaN inputs propagate to NaN outputs automatically via IEEE 754 arithmetic —
+//! no special NaN handling is required.
+//!
+//! Numerically identical to the corresponding `TA_*` functions in ta-lib C.
+//!
+//! # Available Functions
+//!
+//! | Function | ta-lib Name | Notes |
+//! |----------|-------------|-------|
+//! | [`acos`]  | `TA_ACOS`  | Arc cosine; NaN for \|x\| > 1 |
+//! | [`asin`]  | `TA_ASIN`  | Arc sine; NaN for \|x\| > 1 |
+//! | [`atan`]  | `TA_ATAN`  | Arc tangent |
+//! | [`ceil`]  | `TA_CEIL`  | Round up to nearest integer |
+//! | [`cos`]   | `TA_COS`   | Cosine (radians) |
+//! | [`cosh`]  | `TA_COSH`  | Hyperbolic cosine |
+//! | [`exp`]   | `TA_EXP`   | Natural exponential eˣ |
+//! | [`floor`] | `TA_FLOOR` | Round down to nearest integer |
+//! | [`ln`]    | `TA_LN`    | Natural logarithm; NaN for x ≤ 0 |
+//! | [`log10`] | `TA_LOG10` | Base-10 logarithm; NaN for x ≤ 0 |
+//! | [`sin`]   | `TA_SIN`   | Sine (radians) |
+//! | [`sinh`]  | `TA_SINH`  | Hyperbolic sine |
+//! | [`sqrt`]  | `TA_SQRT`  | Square root; NaN for x < 0 |
+//! | [`tan`]   | `TA_TAN`   | Tangent (radians) |
+//! | [`tanh`]  | `TA_TANH`  | Hyperbolic tangent |
+//!
+//! # Example
+//!
+//! ```rust
+//! use polars_ta_core::math_transform::{sqrt, ln, exp};
+//!
+//! let data = vec![1.0, 4.0, 9.0, 16.0];
+//!
+//! let roots = sqrt(&data);
+//! assert!((roots[2] - 3.0).abs() < 1e-10);  // sqrt(9) = 3
+//!
+//! let logs = ln(&data);
+//! assert!((logs[0] - 0.0).abs() < 1e-10);   // ln(1) = 0
+//!
+//! let exps = exp(&[0.0, 1.0]);
+//! assert!((exps[1] - std::f64::consts::E).abs() < 1e-10);
+//! ```
 
 pub fn acos(data: &[f64]) -> Vec<f64> {
     data.iter().map(|&x| x.acos()).collect()

@@ -4,7 +4,8 @@
 
 [![Crates.io](https://img.shields.io/crates/v/polars-ta.svg)](https://crates.io/crates/polars-ta)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-807%20passing-brightgreen)]()
+[![Tests](https://github.com/map-A/ta-lib-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/map-A/ta-lib-rs/actions/workflows/ci.yml)
+[![Indicators](https://img.shields.io/badge/indicators-91%2B-blue)](wiki/Indicator-Reference.md)
 
 ## Features
 
@@ -287,6 +288,18 @@ cargo test --package polars-ta-verify
 ```bash
 cargo bench --package polars-ta-verify
 ```
+
+## Wiki
+
+Detailed documentation is available in [`wiki/`](wiki/):
+
+- [Quick Start](wiki/Quick-Start.md) — Installation and first example
+- [Indicator Reference](wiki/Indicator-Reference.md) — Complete 91+ indicator table
+- [Performance](wiki/Performance.md) — Benchmark methodology and results
+- [Contributing](wiki/Contributing.md) — How to add new indicators
+
+> **GitHub Wiki**: The `wiki/` directory is also pushed to the [GitHub Wiki](https://github.com/map-A/ta-lib-rs/wiki)
+> (a separate git repo at `https://github.com/map-A/ta-lib-rs.wiki.git`).
 
 ## Extending with Custom Indicators
 

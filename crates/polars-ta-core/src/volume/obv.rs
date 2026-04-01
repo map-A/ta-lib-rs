@@ -53,30 +53,21 @@ pub fn obv(close: &[f64], volume: &[f64]) -> Vec<f64> {
 
     let mut out = vec![0.0_f64; n];
 
-    // SAFETY: 所有索引均在 [0, n) 内，n 已验证非零
-    unsafe {
-        let c = close.as_ptr();
-        let v = volume.as_ptr();
-        let o = out.as_mut_ptr();
+    let mut acc = volume[0];
+    out[0] = acc;
 
-        let mut acc = *v;
-        *o = acc;
-
-        // 位掩码法：将 bool 扩展为全 1 / 全 0 的 u64，直接应用到 volume 的 IEEE 754 位上
-        // 完全无分支，无 int→float 转换，LLVM 可识别为 pand/pandn 模式
-        let mut prev = *c;
-        for i in 1..n {
-            let curr = *c.add(i);
-            let vol = *v.add(i);
-            let up = (curr > prev) as u64;
-            let dn = (curr < prev) as u64;
-            let bits = vol.to_bits();
-            let pos = f64::from_bits(bits & up.wrapping_neg());
-            let neg = f64::from_bits(bits & dn.wrapping_neg());
-            acc += pos - neg;
-            *o.add(i) = acc;
-            prev = curr;
-        }
+    let mut prev = close[0];
+    for i in 1..n {
+        let curr = close[i];
+        let vol = volume[i];
+        let up = (curr > prev) as u64;
+        let dn = (curr < prev) as u64;
+        let bits = vol.to_bits();
+        let pos = f64::from_bits(bits & up.wrapping_neg());
+        let neg = f64::from_bits(bits & dn.wrapping_neg());
+        acc += pos - neg;
+        out[i] = acc;
+        prev = curr;
     }
 
     out
