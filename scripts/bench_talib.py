@@ -675,6 +675,502 @@ def bench_midprice(sizes: list[int], period: int = 14) -> list[dict]:
     return results
 
 
+# ─── Phase 1 missing: aroon, mfi ──────────────────────────────────────────────
+
+def bench_aroon(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.AROON(d[0], d[1], timeperiod=period), (high, low))
+        r["indicator"] = "aroon"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_mfi(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, volume = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.MFI(d[0], d[1], d[2], d[3], timeperiod=period), (high, low, close, volume))
+        r["indicator"] = "mfi"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 3: Math Operators ──────────────────────────────────────────────────
+
+def bench_add(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ADD(d[0], d[1]), (data, data2))
+        r["indicator"] = "add"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_div(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = make_bench_data(size)
+        r = bench_fn(lambda d: talib.DIV(d[0], d[1]), (data, data2))
+        r["indicator"] = "div"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_mult(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MULT(d[0], d[1]), (data, data2))
+        r["indicator"] = "mult"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sub(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = make_bench_data(size)
+        r = bench_fn(lambda d: talib.SUB(d[0], d[1]), (data, data2))
+        r["indicator"] = "sub"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_max(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MAX(d, timeperiod=period), data)
+        r["indicator"] = "max"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_min(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MIN(d, timeperiod=period), data)
+        r["indicator"] = "min"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sum(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.SUM(d, timeperiod=period), data)
+        r["indicator"] = "sum"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_maxindex(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MAXINDEX(d, timeperiod=period), data)
+        r["indicator"] = "maxindex"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_minindex(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MININDEX(d, timeperiod=period), data)
+        r["indicator"] = "minindex"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_minmax(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MINMAX(d, timeperiod=period), data)
+        r["indicator"] = "minmax"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_minmaxindex(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MINMAXINDEX(d, timeperiod=period), data)
+        r["indicator"] = "minmaxindex"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 3: Math Transform ──────────────────────────────────────────────────
+
+def bench_acos(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        # 归一化到 [-1, 1] 以确保 acos 有合法输入
+        close_norm = (data - data.min()) / (data.max() - data.min()) * 2 - 1
+        r = bench_fn(lambda d: talib.ACOS(d), close_norm)
+        r["indicator"] = "acos"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_asin(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        close_norm = (data - data.min()) / (data.max() - data.min()) * 2 - 1
+        r = bench_fn(lambda d: talib.ASIN(d), close_norm)
+        r["indicator"] = "asin"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_atan(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ATAN(d), data)
+        r["indicator"] = "atan"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_ceil(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.CEIL(d), data)
+        r["indicator"] = "ceil"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_cos(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.COS(d), data)
+        r["indicator"] = "cos"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_cosh(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.COSH(d), data)
+        r["indicator"] = "cosh"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_exp(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.EXP(d), data)
+        r["indicator"] = "exp"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_floor(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.FLOOR(d), data)
+        r["indicator"] = "floor"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_ln(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.LN(d), data)
+        r["indicator"] = "ln"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_log10(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.LOG10(d), data)
+        r["indicator"] = "log10"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sin(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.SIN(d), data)
+        r["indicator"] = "sin"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sinh(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.SINH(d), data)
+        r["indicator"] = "sinh"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sqrt(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.SQRT(d), data)
+        r["indicator"] = "sqrt"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_tan(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.TAN(d), data)
+        r["indicator"] = "tan"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_tanh(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.TANH(d), data)
+        r["indicator"] = "tanh"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 3: Price Transform ─────────────────────────────────────────────────
+
+def bench_avgprice(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        open_ = close * 0.995
+        r = bench_fn(lambda d: talib.AVGPRICE(d[0], d[1], d[2], d[3]), (open_, high, low, close))
+        r["indicator"] = "avgprice"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_medprice(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.MEDPRICE(d[0], d[1]), (high, low))
+        r["indicator"] = "medprice"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_typprice(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.TYPPRICE(d[0], d[1], d[2]), (high, low, close))
+        r["indicator"] = "typprice"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_wclprice(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.WCLPRICE(d[0], d[1], d[2]), (high, low, close))
+        r["indicator"] = "wclprice"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 3: 振荡器与趋势 ─────────────────────────────────────────────────────
+
+def bench_aroonosc(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.AROONOSC(d[0], d[1], timeperiod=period), (high, low))
+        r["indicator"] = "aroonosc"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_stochf(sizes: list[int], fastk_period: int = 5, fastd_period: int = 3) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(
+            lambda d: talib.STOCHF(d[0], d[1], d[2], fastk_period=fastk_period, fastd_period=fastd_period),
+            (high, low, close),
+        )
+        r["indicator"] = "stochf"
+        r["params"] = {"fastk_period": fastk_period, "fastd_period": fastd_period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_ma(sizes: list[int], period: int = 20, matype: int = 1) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MA(d, timeperiod=period, matype=matype), data)
+        r["indicator"] = "ma"
+        r["params"] = {"period": period, "matype": matype}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_macdext(
+    sizes: list[int],
+    fastperiod: int = 12,
+    fastmatype: int = 1,
+    slowperiod: int = 26,
+    slowmatype: int = 1,
+    signalperiod: int = 9,
+    signalmatype: int = 1,
+) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(
+            lambda d: talib.MACDEXT(
+                d,
+                fastperiod=fastperiod,
+                fastmatype=fastmatype,
+                slowperiod=slowperiod,
+                slowmatype=slowmatype,
+                signalperiod=signalperiod,
+                signalmatype=signalmatype,
+            ),
+            data,
+        )
+        r["indicator"] = "macdext"
+        r["params"] = {"fastperiod": fastperiod, "slowperiod": slowperiod, "signalperiod": signalperiod}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_macdfix(sizes: list[int], signalperiod: int = 9) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MACDFIX(d, signalperiod=signalperiod), data)
+        r["indicator"] = "macdfix"
+        r["params"] = {"signalperiod": signalperiod}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_sarext(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.SAREXT(d[0], d[1]), (high, low))
+        r["indicator"] = "sarext"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
 BENCH_FUNCTIONS = {
     "sma":      bench_sma,
     "ema":      bench_ema,
@@ -727,6 +1223,49 @@ BENCH_FUNCTIONS = {
     "t3":       bench_t3,
     "midpoint": bench_midpoint,
     "midprice": bench_midprice,
+    # Phase 1 missing
+    "aroon":    bench_aroon,
+    "mfi":      bench_mfi,
+    # Phase 3 数学运算符
+    "add":          bench_add,
+    "div":          bench_div,
+    "mult":         bench_mult,
+    "sub":          bench_sub,
+    "max":          bench_max,
+    "min":          bench_min,
+    "sum":          bench_sum,
+    "maxindex":     bench_maxindex,
+    "minindex":     bench_minindex,
+    "minmax":       bench_minmax,
+    "minmaxindex":  bench_minmaxindex,
+    # Phase 3 数学变换
+    "acos":     bench_acos,
+    "asin":     bench_asin,
+    "atan":     bench_atan,
+    "ceil":     bench_ceil,
+    "cos":      bench_cos,
+    "cosh":     bench_cosh,
+    "exp":      bench_exp,
+    "floor":    bench_floor,
+    "ln":       bench_ln,
+    "log10":    bench_log10,
+    "sin":      bench_sin,
+    "sinh":     bench_sinh,
+    "sqrt":     bench_sqrt,
+    "tan":      bench_tan,
+    "tanh":     bench_tanh,
+    # Phase 3 价格变换
+    "avgprice": bench_avgprice,
+    "medprice": bench_medprice,
+    "typprice": bench_typprice,
+    "wclprice": bench_wclprice,
+    # Phase 3 振荡器与趋势
+    "aroonosc": bench_aroonosc,
+    "stochf":   bench_stochf,
+    "ma":       bench_ma,
+    "macdext":  bench_macdext,
+    "macdfix":  bench_macdfix,
+    "sarext":   bench_sarext,
 }
 
 SIZES = [100, 10_000, 1_000_000]

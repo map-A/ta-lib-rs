@@ -8,9 +8,12 @@
 //! To compare with ta-lib C, run: `scripts/compare_all.sh`
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use polars_ta_core::oscillator::{adxr, apo, bop, cci, cmo, dx, minus_di, minus_dm, mom, plus_di, plus_dm, ppo, roc, rocp, rocr, rocr100, rsi, stoch, stochrsi, trix, ultosc, willr};
+use polars_ta_core::math_ops::{add, div, max, maxindex, min, minindex, minmax, minmaxindex, mult, sub, sum};
+use polars_ta_core::math_transform::{acos, asin, atan, ceil, cos, cosh, exp, floor, ln, log10, sin, sinh, sqrt, tan, tanh};
+use polars_ta_core::oscillator::{adxr, apo, aroon, aroonosc, bop, cci, cmo, dx, mfi, minus_di, minus_dm, mom, plus_di, plus_dm, ppo, roc, rocp, rocr, rocr100, rsi, stoch, stochf, stochrsi, trix, ultosc, willr};
+use polars_ta_core::price_transform::{avgprice, medprice, typprice, wclprice};
 use polars_ta_core::statistic::{beta, correl, linearreg, linearreg_angle, linearreg_intercept, linearreg_slope, stddev, tsf, var};
-use polars_ta_core::trend::{adx, bbands, dema, ema, kama, macd, midpoint, midprice, sar, sma, t3, tema, trima, wma};
+use polars_ta_core::trend::{adx, bbands, dema, ema, kama, ma, macd, macdext, macdfix, midpoint, midprice, sar, sarext, sma, t3, tema, trima, wma};
 use polars_ta_core::volatility::{atr, natr, trange};
 use polars_ta_core::volume::{ad, adosc, obv};
 
@@ -692,6 +695,483 @@ fn bench_midprice(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Phase 1 missing: aroon, mfi ─────────────────────────────────────────────
+
+fn bench_aroon(c: &mut Criterion) {
+    let mut group = c.benchmark_group("aroon");
+    for size in SIZES {
+        let (high, low, _, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| aroon(black_box(&high), black_box(&low), black_box(14)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_mfi(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mfi");
+    for size in SIZES {
+        let (high, low, close, volume) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| mfi(black_box(&high), black_box(&low), black_box(&close), black_box(&volume), black_box(14)))
+        });
+    }
+    group.finish();
+}
+
+// ─── Phase 3: Math Operators ──────────────────────────────────────────────────
+
+fn bench_add(c: &mut Criterion) {
+    let mut group = c.benchmark_group("add");
+    for size in SIZES {
+        let data = make_data(size);
+        let data2 = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| add(black_box(&data), black_box(&data2)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_div(c: &mut Criterion) {
+    let mut group = c.benchmark_group("div");
+    for size in SIZES {
+        let data = make_data(size);
+        let data2 = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| div(black_box(&data), black_box(&data2)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_mult(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mult");
+    for size in SIZES {
+        let data = make_data(size);
+        let data2 = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| mult(black_box(&data), black_box(&data2)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sub(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sub");
+    for size in SIZES {
+        let data = make_data(size);
+        let data2 = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sub(black_box(&data), black_box(&data2)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_max(c: &mut Criterion) {
+    let mut group = c.benchmark_group("max");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| max(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_min(c: &mut Criterion) {
+    let mut group = c.benchmark_group("min");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| min(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sum(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sum");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sum(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_maxindex(c: &mut Criterion) {
+    let mut group = c.benchmark_group("maxindex");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| maxindex(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_minindex(c: &mut Criterion) {
+    let mut group = c.benchmark_group("minindex");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| minindex(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_minmax(c: &mut Criterion) {
+    let mut group = c.benchmark_group("minmax");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| minmax(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_minmaxindex(c: &mut Criterion) {
+    let mut group = c.benchmark_group("minmaxindex");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| minmaxindex(black_box(&data), black_box(20)))
+        });
+    }
+    group.finish();
+}
+
+// ─── Phase 3: Math Transform ──────────────────────────────────────────────────
+
+fn bench_acos(c: &mut Criterion) {
+    let mut group = c.benchmark_group("acos");
+    for size in SIZES {
+        // 归一化到 [-1, 1] 以产生合法输出
+        let data: Vec<f64> = (0..size).map(|i| (i as f64 / size as f64) * 2.0 - 1.0).collect();
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| acos(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_asin(c: &mut Criterion) {
+    let mut group = c.benchmark_group("asin");
+    for size in SIZES {
+        let data: Vec<f64> = (0..size).map(|i| (i as f64 / size as f64) * 2.0 - 1.0).collect();
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| asin(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_atan(c: &mut Criterion) {
+    let mut group = c.benchmark_group("atan");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| atan(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_ceil(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ceil");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| ceil(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_cos(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cos");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| cos(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_cosh(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cosh");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| cosh(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_exp(c: &mut Criterion) {
+    let mut group = c.benchmark_group("exp");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| exp(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_floor(c: &mut Criterion) {
+    let mut group = c.benchmark_group("floor");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| floor(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_ln(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ln");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| ln(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_log10(c: &mut Criterion) {
+    let mut group = c.benchmark_group("log10");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| log10(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sin(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sin");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sin(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sinh(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sinh");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sinh(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sqrt(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sqrt");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sqrt(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_tan(c: &mut Criterion) {
+    let mut group = c.benchmark_group("tan");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| tan(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_tanh(c: &mut Criterion) {
+    let mut group = c.benchmark_group("tanh");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| tanh(black_box(&data)))
+        });
+    }
+    group.finish();
+}
+
+// ─── Phase 3: Price Transform ─────────────────────────────────────────────────
+
+fn bench_avgprice(c: &mut Criterion) {
+    let mut group = c.benchmark_group("avgprice");
+    for size in SIZES {
+        let (high, low, close, _) = make_ohlcv(size);
+        let open: Vec<f64> = close.iter().map(|&c| c * 0.995).collect();
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| avgprice(black_box(&open), black_box(&high), black_box(&low), black_box(&close)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_medprice(c: &mut Criterion) {
+    let mut group = c.benchmark_group("medprice");
+    for size in SIZES {
+        let (high, low, _, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| medprice(black_box(&high), black_box(&low)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_typprice(c: &mut Criterion) {
+    let mut group = c.benchmark_group("typprice");
+    for size in SIZES {
+        let (high, low, close, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| typprice(black_box(&high), black_box(&low), black_box(&close)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_wclprice(c: &mut Criterion) {
+    let mut group = c.benchmark_group("wclprice");
+    for size in SIZES {
+        let (high, low, close, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| wclprice(black_box(&high), black_box(&low), black_box(&close)))
+        });
+    }
+    group.finish();
+}
+
+// ─── Phase 3: 振荡器 / 趋势 ────────────────────────────────────────────────────
+
+fn bench_aroonosc(c: &mut Criterion) {
+    let mut group = c.benchmark_group("aroonosc");
+    for size in SIZES {
+        let (high, low, _, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| aroonosc(black_box(&high), black_box(&low), black_box(14)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_stochf(c: &mut Criterion) {
+    let mut group = c.benchmark_group("stochf");
+    for size in SIZES {
+        let (high, low, close, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| stochf(black_box(&high), black_box(&low), black_box(&close), black_box(5), black_box(3)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_ma(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ma");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| ma(black_box(&data), black_box(20), black_box(1)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_macdext(c: &mut Criterion) {
+    let mut group = c.benchmark_group("macdext");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| macdext(black_box(&data), black_box(12), black_box(1), black_box(26), black_box(1), black_box(9), black_box(1)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_macdfix(c: &mut Criterion) {
+    let mut group = c.benchmark_group("macdfix");
+    for size in SIZES {
+        let data = make_data(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| macdfix(black_box(&data), black_box(9)))
+        });
+    }
+    group.finish();
+}
+
+fn bench_sarext(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sarext");
+    for size in SIZES {
+        let (high, low, _, _) = make_ohlcv(size);
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
+            b.iter(|| sarext(
+                black_box(&high), black_box(&low),
+                black_box(0.0), black_box(0.0),
+                black_box(0.02), black_box(0.02), black_box(0.20),
+                black_box(0.02), black_box(0.02), black_box(0.20),
+            ))
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_sma,
@@ -748,5 +1228,48 @@ criterion_group!(
     bench_t3,
     bench_midpoint,
     bench_midprice,
+    // Phase 1 missing
+    bench_aroon,
+    bench_mfi,
+    // Phase 3 数学运算符
+    bench_add,
+    bench_div,
+    bench_mult,
+    bench_sub,
+    bench_max,
+    bench_min,
+    bench_sum,
+    bench_maxindex,
+    bench_minindex,
+    bench_minmax,
+    bench_minmaxindex,
+    // Phase 3 数学变换
+    bench_acos,
+    bench_asin,
+    bench_atan,
+    bench_ceil,
+    bench_cos,
+    bench_cosh,
+    bench_exp,
+    bench_floor,
+    bench_ln,
+    bench_log10,
+    bench_sin,
+    bench_sinh,
+    bench_sqrt,
+    bench_tan,
+    bench_tanh,
+    // Phase 3 价格变换
+    bench_avgprice,
+    bench_medprice,
+    bench_typprice,
+    bench_wclprice,
+    // Phase 3 振荡器与趋势
+    bench_aroonosc,
+    bench_stochf,
+    bench_ma,
+    bench_macdext,
+    bench_macdfix,
+    bench_sarext,
 );
 criterion_main!(benches);
