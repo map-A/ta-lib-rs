@@ -53,50 +53,75 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
         return vec![];
     }
 
-    // 仅保留 typical price（用于 tp[i-1] 比较），money flow 通过 tp[i]*volume[i] 内联计算
-    // 相比原实现减少 3 个中间 Vec（raw_mf, pos_mf, neg_mf），提升缓存局部性
-    let mut tp = Vec::with_capacity(n);
-    for i in 0..n {
-        tp.push((high[i] + low[i] + close[i]) / 3.0);
+    let inv3 = 1.0 / 3.0;
+
+    // Pass 1: 预计算 tp 和有符号 money flow（正/负/零）
+    // 将 tp 和 mf 分离后，滑动求和循环只需读单个 mf 数组，提升缓存命中率
+    let mut tp = vec![0.0f64; n];
+    let mut mf = vec![0.0f64; n]; // mf[0] 未使用；mf[i] = ±tp[i]*vol[i]
+    unsafe {
+        let h = high.as_ptr();
+        let l = low.as_ptr();
+        let c = close.as_ptr();
+        let v = volume.as_ptr();
+        let tp_ptr = tp.as_mut_ptr();
+        let mf_ptr = mf.as_mut_ptr();
+        for i in 0..n {
+            let t = (*h.add(i) + *l.add(i) + *c.add(i)) * inv3;
+            *tp_ptr.add(i) = t;
+            if i > 0 {
+                let prev_t = *tp_ptr.add(i - 1);
+                let raw = t * *v.add(i);
+                if t > prev_t {
+                    *mf_ptr.add(i) = raw;
+                } else if t < prev_t {
+                    *mf_ptr.add(i) = -raw;
+                }
+            }
+        }
     }
 
+    // Pass 2: 滑动求和（窗口 [1..=period] → [out_len..=n-1]）
     let out_len = n - period;
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0f64; out_len];
 
-    // 初始化第一个窗口：原始索引 1..=period 的正负 money flow
-    let mut pos_sum = 0.0_f64;
-    let mut neg_sum = 0.0_f64;
-    for i in 1..=period {
-        let raw = tp[i] * volume[i];
-        if tp[i] > tp[i - 1] {
-            pos_sum += raw;
-        } else if tp[i] < tp[i - 1] {
-            neg_sum += raw;
+    let mut pos_sum = 0.0f64;
+    let mut neg_sum = 0.0f64;
+
+    // 预热：累加窗口 1..=period
+    unsafe {
+        let mf_ptr = mf.as_ptr();
+        for i in 1..=period {
+            let v = *mf_ptr.add(i);
+            if v > 0.0 {
+                pos_sum += v;
+            } else if v < 0.0 {
+                neg_sum -= v;
+            }
         }
     }
-    out.push(compute_mfi(pos_sum, neg_sum));
 
-    // 滑动窗口
-    for i in (period + 1)..n {
-        let out_i = i - period;
-        // 移出旧元素
-        let out_raw = tp[out_i] * volume[out_i];
-        if tp[out_i] > tp[out_i - 1] {
-            pos_sum -= out_raw;
-        } else if tp[out_i] < tp[out_i - 1] {
-            neg_sum -= out_raw;
+    // 写第一个输出，再滑动 out_len-1 次
+    out[0] = compute_mfi(pos_sum, neg_sum);
+    unsafe {
+        let mf_ptr = mf.as_ptr();
+        let out_ptr = out.as_mut_ptr();
+        for i in 0..out_len - 1 {
+            // 移出 mf[i+1]，移入 mf[i+period+1]
+            let out_mf = *mf_ptr.add(i + 1);
+            let in_mf = *mf_ptr.add(i + period + 1);
+            if out_mf > 0.0 {
+                pos_sum -= out_mf;
+            } else if out_mf < 0.0 {
+                neg_sum += out_mf;
+            }
+            if in_mf > 0.0 {
+                pos_sum += in_mf;
+            } else if in_mf < 0.0 {
+                neg_sum -= in_mf;
+            }
+            *out_ptr.add(i + 1) = compute_mfi(pos_sum, neg_sum);
         }
-        // 移入新元素
-        let in_raw = tp[i] * volume[i];
-        if tp[i] > tp[i - 1] {
-            pos_sum += in_raw;
-        } else if tp[i] < tp[i - 1] {
-            neg_sum += in_raw;
-        }
-        // 浮点误差保护：防止累计减法产生微小负值
-        pos_sum = pos_sum.max(0.0);
-        neg_sum = neg_sum.max(0.0);
-        out.push(compute_mfi(pos_sum, neg_sum));
     }
 
     out
