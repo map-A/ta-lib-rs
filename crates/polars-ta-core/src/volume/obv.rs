@@ -62,14 +62,18 @@ pub fn obv(close: &[f64], volume: &[f64]) -> Vec<f64> {
         let mut acc = *v;
         *o = acc;
 
-        // prev_close 保存在寄存器中，避免每次从内存重新加载 close[i-1]
+        // 位掩码法：将 bool 扩展为全 1 / 全 0 的 u64，直接应用到 volume 的 IEEE 754 位上
+        // 完全无分支，无 int→float 转换，LLVM 可识别为 pand/pandn 模式
         let mut prev = *c;
         for i in 1..n {
             let curr = *c.add(i);
             let vol = *v.add(i);
-            // 使用浮点比较直接生成 ±1.0/0.0，避免 int→float 转换延迟
-            let sign = f64::from(curr > prev) - f64::from(curr < prev);
-            acc += sign * vol;
+            let up = (curr > prev) as u64;
+            let dn = (curr < prev) as u64;
+            let bits = vol.to_bits();
+            let pos = f64::from_bits(bits & up.wrapping_neg());
+            let neg = f64::from_bits(bits & dn.wrapping_neg());
+            acc += pos - neg;
             *o.add(i) = acc;
             prev = curr;
         }

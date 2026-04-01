@@ -20,12 +20,17 @@ use polars_ta_core::volume::{ad, adosc, obv};
 const SIZES: [usize; 3] = [100, 10_000, 1_000_000];
 
 fn make_data(size: usize) -> Vec<f64> {
-    (0..size).map(|i| 100.0 + i as f64 * 0.01).collect()
+    // Sinusoidal price-like data — avoids monotonic fast-paths in sliding-window algorithms.
+    (0..size)
+        .map(|i| 100.0 + (i as f64 * 0.01).sin() * 10.0 + (i as f64 * 0.003).sin() * 5.0)
+        .collect()
 }
 
 /// 生成模拟 OHLCV 数据（high > close > low，volume 递增）
 fn make_ohlcv(size: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
-    let close: Vec<f64> = (0..size).map(|i| 100.0 + i as f64 * 0.01).collect();
+    let close: Vec<f64> = (0..size)
+        .map(|i| 100.0 + (i as f64 * 0.01).sin() * 10.0 + (i as f64 * 0.003).sin() * 5.0)
+        .collect();
     let high: Vec<f64> = close.iter().map(|&c| c * 1.01).collect();
     let low: Vec<f64> = close.iter().map(|&c| c * 0.99).collect();
     let volume: Vec<f64> = (0..size).map(|i| 1_000_000.0 + i as f64 * 10.0).collect();

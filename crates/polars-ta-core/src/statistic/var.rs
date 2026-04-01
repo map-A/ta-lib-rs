@@ -11,8 +11,14 @@ pub fn var(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
 
     let pf = period as f64;
     let nbdev2 = nbdev * nbdev;
+    // 预计算倒数，消除热路径中的除法
+    let inv_pf = 1.0 / pf;
+    let inv_pf2 = inv_pf * inv_pf;
+    let coeff1 = nbdev2 * inv_pf;      // nbdev^2 / period
+    let coeff2 = nbdev2 * inv_pf2;     // nbdev^2 / period^2
+
     let out_len = n - (period - 1);
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0_f64; out_len];
 
     let mut sum = 0.0_f64;
     let mut sum_sq = 0.0_f64;
@@ -22,19 +28,21 @@ pub fn var(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
         sum_sq += y * y;
     }
 
-    let calc = |s: f64, ssq: f64| -> f64 {
-        let v = (ssq - s * s / pf) / pf;
-        v.max(0.0) * nbdev2
-    };
+    // v = sum_sq/period - (sum/period)^2 = sum_sq*inv_pf - sum^2*inv_pf^2
+    let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
+    out[0] = v;
 
-    out.push(calc(sum, sum_sq));
-
-    for i in period..n {
-        let yo = data[i - period];
-        let yn = data[i];
-        sum += yn - yo;
-        sum_sq += yn * yn - yo * yo;
-        out.push(calc(sum, sum_sq));
+    unsafe {
+        let dp = data.as_ptr();
+        let op = out.as_mut_ptr();
+        for i in 1..out_len {
+            let yo = *dp.add(i - 1);
+            let yn = *dp.add(i + period - 1);
+            sum += yn - yo;
+            sum_sq += yn * yn - yo * yo;
+            let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
+            *op.add(i) = v;
+        }
     }
 
     out

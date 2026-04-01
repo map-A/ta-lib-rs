@@ -10,8 +10,11 @@ pub fn stddev(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
     }
 
     let pf = period as f64;
+    let inv_pf = 1.0 / pf;
+    let inv_pf2 = inv_pf * inv_pf;
+
     let out_len = n - (period - 1);
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0_f64; out_len];
 
     let mut sum = 0.0_f64;
     let mut sum_sq = 0.0_f64;
@@ -21,19 +24,19 @@ pub fn stddev(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
         sum_sq += y * y;
     }
 
-    let calc = |s: f64, ssq: f64| -> f64 {
-        let var = (ssq - s * s / pf) / pf;
-        var.max(0.0).sqrt() * nbdev
-    };
+    out[0] = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
 
-    out.push(calc(sum, sum_sq));
-
-    for i in period..n {
-        let yo = data[i - period];
-        let yn = data[i];
-        sum += yn - yo;
-        sum_sq += yn * yn - yo * yo;
-        out.push(calc(sum, sum_sq));
+    unsafe {
+        let dp = data.as_ptr();
+        let op = out.as_mut_ptr();
+        for i in 1..out_len {
+            let yo = *dp.add(i - 1);
+            let yn = *dp.add(i + period - 1);
+            sum += yn - yo;
+            sum_sq += yn * yn - yo * yo;
+            let v = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
+            *op.add(i) = v;
+        }
     }
 
     out

@@ -31,13 +31,14 @@ except ImportError:
 
 
 def make_bench_data(size: int) -> np.ndarray:
-    """Identical data to Rust: 100.0 + i * 0.01"""
-    return np.arange(size, dtype=np.float64) * 0.01 + 100.0
+    """Realistic price-like data: sinusoidal to avoid monotonic fast-paths."""
+    i = np.arange(size, dtype=np.float64)
+    return 100.0 + np.sin(i * 0.01) * 10.0 + np.sin(i * 0.003) * 5.0
 
 
 def make_ohlcv(size: int):
     """OHLCV data matching Rust make_ohlcv helper."""
-    close = np.arange(size, dtype=np.float64) * 0.01 + 100.0
+    close = make_bench_data(size)
     high = close * 1.01
     low = close * 0.99
     volume = np.arange(size, dtype=np.float64) * 10.0 + 1_000_000.0
