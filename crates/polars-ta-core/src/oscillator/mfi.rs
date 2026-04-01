@@ -57,11 +57,11 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
     let out_len = n - period;
     let mut out = vec![0.0f64; out_len];
 
-    // 使用大小为 period 的环形缓冲区替代 O(n) 的中间数组
-    // 对于典型的 period=14，缓冲区仅 224 字节，完全驻留在 L1 缓存中
-    // 同时省去独立的 tp[] 数组，单趟扫描即可完成全部计算
-    let mut pos_ring = vec![0.0f64; period];
-    let mut neg_ring = vec![0.0f64; period];
+    // 使用 2^k 大小的环形缓冲区（bitmask 替代 if 重置，消除热路径分支）
+    let cap = period.next_power_of_two();
+    let mask = cap - 1;
+    let mut pos_ring = vec![0.0f64; cap];
+    let mut neg_ring = vec![0.0f64; cap];
     let mut pos_sum = 0.0f64;
     let mut neg_sum = 0.0f64;
     let mut ring_head = 0usize;
@@ -86,17 +86,16 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
             let signed = raw * sign as f64;
             let pm = signed.max(0.0);
             let nm = (-signed).max(0.0);
-            *pos_ptr.add(i - 1) = pm;
-            *neg_ptr.add(i - 1) = nm;
+            *pos_ptr.add((i - 1) & mask) = pm;
+            *neg_ptr.add((i - 1) & mask) = nm;
             pos_sum += pm;
             neg_sum += nm;
             tp_prev = t;
         }
-        // 预热后 tp_prev = tp[period]
 
         *out_ptr = compute_mfi(pos_sum, neg_sum);
 
-        // 滑动循环：替换最旧元素，纯加减无分支
+        // 滑动循环：bitmask 替代 if 重置，热路径无条件分支
         for i in 0..out_len - 1 {
             let j = i + period + 1;
             let t = (*h.add(j) + *l.add(j) + *c.add(j)) * inv3;
@@ -106,13 +105,12 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
             let pm = signed.max(0.0);
             let nm = (-signed).max(0.0);
 
-            let old_pos = *pos_ptr.add(ring_head);
-            let old_neg = *neg_ptr.add(ring_head);
-            *pos_ptr.add(ring_head) = pm;
-            *neg_ptr.add(ring_head) = nm;
-
-            ring_head += 1;
-            if ring_head == period { ring_head = 0; }
+            let slot = ring_head & mask;
+            let old_pos = *pos_ptr.add(slot);
+            let old_neg = *neg_ptr.add(slot);
+            *pos_ptr.add(slot) = pm;
+            *neg_ptr.add(slot) = nm;
+            ring_head = ring_head.wrapping_add(1);
 
             pos_sum += pm - old_pos;
             neg_sum += nm - old_neg;
@@ -126,13 +124,10 @@ pub fn mfi(high: &[f64], low: &[f64], close: &[f64], volume: &[f64], period: usi
 
 #[inline]
 fn compute_mfi(pos_sum: f64, neg_sum: f64) -> f64 {
-    if pos_sum == 0.0 {
-        return 0.0;
-    }
-    if neg_sum == 0.0 {
-        return 100.0;
-    }
-    100.0 - 100.0 / (1.0 + pos_sum / neg_sum)
+    // 代数等价：100 - 100/(1+pos/neg) = 100*pos/(pos+neg)
+    // 单次除法；total=0 时返回 0（覆盖 pos=0 和 neg=0 双零情况）
+    let total = pos_sum + neg_sum;
+    if total == 0.0 { 0.0 } else { 100.0 * pos_sum / total }
 }
 
 #[cfg(test)]
