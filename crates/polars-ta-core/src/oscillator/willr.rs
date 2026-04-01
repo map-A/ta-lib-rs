@@ -47,22 +47,68 @@ pub fn willr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64
     }
 
     let out_len = n - (period - 1);
-    let mut out = Vec::with_capacity(out_len);
+    let mut out = vec![0.0f64; out_len];
 
-    for i in (period - 1)..n {
-        let start = i + 1 - period;
-        let mut hh = high[start];
-        let mut ll = low[start];
-        for j in (start + 1)..=i {
-            if high[j] > hh { hh = high[j]; }
-            if low[j] < ll { ll = low[j]; }
+    // 单调递减队列（存储索引）用于 O(n) 滑动最大高价
+    let mut max_dq: std::collections::VecDeque<usize> =
+        std::collections::VecDeque::with_capacity(period);
+    // 单调递增队列（存储索引）用于 O(n) 滑动最小低价
+    let mut min_dq: std::collections::VecDeque<usize> =
+        std::collections::VecDeque::with_capacity(period);
+
+    // SAFETY: 所有偏移均在 [0, n) 内；入队后队列非空，unwrap_unchecked 安全
+    unsafe {
+        let h = high.as_ptr();
+        let l = low.as_ptr();
+        let c = close.as_ptr();
+        let o = out.as_mut_ptr();
+
+        for i in 0..n {
+            let hi = *h.add(i);
+            let li = *l.add(i);
+
+            // 维护最大值队列（单调递减）：移除尾部所有不大于 hi 的元素
+            while let Some(&back) = max_dq.back() {
+                if *h.add(back) <= hi {
+                    max_dq.pop_back();
+                } else {
+                    break;
+                }
+            }
+            max_dq.push_back(i);
+
+            // 维护最小值队列（单调递增）：移除尾部所有不小于 li 的元素
+            while let Some(&back) = min_dq.back() {
+                if *l.add(back) >= li {
+                    min_dq.pop_back();
+                } else {
+                    break;
+                }
+            }
+            min_dq.push_back(i);
+
+            // 移除已滑出窗口 [i-period+1, i] 的过期头部元素
+            if *max_dq.front().unwrap_unchecked() + period <= i {
+                max_dq.pop_front();
+            }
+            if *min_dq.front().unwrap_unchecked() + period <= i {
+                min_dq.pop_front();
+            }
+
+            // 仅在完整窗口建立后写出
+            if i >= period - 1 {
+                let hh = *h.add(*max_dq.front().unwrap_unchecked());
+                let ll = *l.add(*min_dq.front().unwrap_unchecked());
+                let ci = *c.add(i);
+                let diff = hh - ll;
+                let wr = if diff.abs() < f64::EPSILON {
+                    0.0
+                } else {
+                    (hh - ci) / diff * -100.0
+                };
+                *o.add(i - (period - 1)) = wr;
+            }
         }
-        let wr = if (hh - ll).abs() < f64::EPSILON {
-            0.0
-        } else {
-            (hh - close[i]) / (hh - ll) * -100.0
-        };
-        out.push(wr);
     }
 
     out

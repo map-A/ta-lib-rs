@@ -59,7 +59,8 @@ pub fn wma(data: &[f64], period: usize) -> Vec<f64> {
 
     let lookback = period - 1;
     let out_len = n - lookback;
-    let denom = (period * (period + 1) / 2) as f64;
+    // 乘法替代除法，避免每次循环的除法开销
+    let inv_denom = 1.0 / (period * (period + 1) / 2) as f64;
 
     // 初始化第一个窗口的加权和与普通和
     let mut wma_sum = 0.0f64;
@@ -70,14 +71,23 @@ pub fn wma(data: &[f64], period: usize) -> Vec<f64> {
         running_sum += v;
     }
 
-    let mut out = Vec::with_capacity(out_len);
-    out.push(wma_sum / denom);
+    let mut out = vec![0.0f64; out_len];
 
-    // 滑动更新
-    for i in period..n {
-        wma_sum = wma_sum - running_sum + data[i] * period as f64;
-        running_sum += data[i] - data[i - period];
-        out.push(wma_sum / denom);
+    // SAFETY: 所有偏移均在 [0, n) 和 [0, out_len) 内，n 已验证 ≥ period
+    unsafe {
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
+
+        *out_ptr = wma_sum * inv_denom;
+
+        // 滑动更新：仅用加减运算，无乘法
+        for i in 1..out_len {
+            let new_val = *data_ptr.add(lookback + i);
+            let old_val = *data_ptr.add(i - 1);
+            wma_sum = wma_sum - running_sum + new_val * period as f64;
+            running_sum += new_val - old_val;
+            *out_ptr.add(i) = wma_sum * inv_denom;
+        }
     }
 
     out

@@ -59,18 +59,25 @@ pub fn sma(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
 
-    let lookback = period - 1;
-    let out_len = n - lookback;
-    let mut out = Vec::with_capacity(out_len);
+    let out_len = n - (period - 1);
+    let mut out = vec![0.0f64; out_len];
+    // 乘法替代除法，避免每次循环的除法开销
+    let inv_period = 1.0 / period as f64;
 
-    // 第一个窗口的和（若含 NaN 则 sum = NaN，后续全部永久污染）
-    let mut sum: f64 = data[..period].iter().sum();
-    out.push(sum / period as f64);
+    // SAFETY: 所有偏移均在 [0, n) 和 [0, out_len) 内，n 已验证 ≥ period
+    unsafe {
+        let data_ptr = data.as_ptr();
+        let out_ptr = out.as_mut_ptr();
 
-    // 滑动窗口：与 ta-lib 行为完全一致
-    for i in period..n {
-        sum += data[i] - data[i - period];
-        out.push(sum / period as f64);
+        // 第一个窗口的和（若含 NaN 则 sum = NaN，后续全部永久污染）
+        let mut sum: f64 = (0..period).map(|j| *data_ptr.add(j)).sum();
+        *out_ptr = sum * inv_period;
+
+        // 滑动窗口：与 ta-lib 行为完全一致
+        for i in 1..out_len {
+            sum += *data_ptr.add(period + i - 1) - *data_ptr.add(i - 1);
+            *out_ptr.add(i) = sum * inv_period;
+        }
     }
 
     out
