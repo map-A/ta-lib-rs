@@ -131,8 +131,12 @@ pub fn assert_close(actual: &[f64], golden: &[Option<f64>], epsilon: f64, label:
         .filter_map(|(i, v)| v.map(|f| (i, f)))
         .collect();
 
-    // 只取 actual 中有效值（跳过 NaN）
-    let valid_actual: Vec<f64> = actual.iter().copied().filter(|v| !v.is_nan()).collect();
+    // 只取 actual 中有效值（跳过 NaN 和 Inf，与 golden 中的 null 对应）
+    let valid_actual: Vec<f64> = actual
+        .iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .collect();
 
     assert_eq!(
         valid_actual.len(),
@@ -161,6 +165,65 @@ pub fn assert_close(actual: &[f64], golden: &[Option<f64>], epsilon: f64, label:
             label,
             failures.len(),
             epsilon,
+            failures.join("\n")
+        );
+    }
+}
+
+/// Like [`assert_close`] but accepts values that pass either an absolute OR a relative tolerance.
+///
+/// A value passes if `|actual - expected| <= abs_epsilon OR |actual - expected| / |expected| <= rel_epsilon`.
+/// This is appropriate for math-transform functions (EXP, COSH, SINH, TAN) where outputs can be
+/// very large, making absolute epsilon comparisons meaningless, while relative error stays near
+/// machine epsilon.
+pub fn assert_close_relative(
+    actual: &[f64],
+    golden: &[Option<f64>],
+    abs_epsilon: f64,
+    rel_epsilon: f64,
+    label: &str,
+) {
+    let valid_golden: Vec<(usize, f64)> = golden
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| v.map(|f| (i, f)))
+        .collect();
+
+    let valid_actual: Vec<f64> = actual
+        .iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .collect();
+
+    assert_eq!(
+        valid_actual.len(),
+        valid_golden.len(),
+        "[{}] 有效输出数量不一致: actual_valid={}, golden_valid={} (actual_total={})",
+        label,
+        valid_actual.len(),
+        valid_golden.len(),
+        actual.len(),
+    );
+
+    let mut failures = vec![];
+    for (actual_val, (golden_idx, expected)) in valid_actual.iter().zip(valid_golden.iter()) {
+        let diff = (actual_val - expected).abs();
+        let rel_diff = if expected.abs() > 0.0 { diff / expected.abs() } else { diff };
+        if diff > abs_epsilon && rel_diff > rel_epsilon {
+            failures.push(format!(
+                "  golden_index={}: actual={:.15e}, expected={:.15e}, abs_diff={:.2e}, rel_diff={:.2e}",
+                golden_idx, actual_val, expected, diff, rel_diff
+            ));
+        }
+    }
+
+    if !failures.is_empty() {
+        panic!(
+            "[{}] Golden Test 失败，共 {} 处超出 abs_epsilon={:.0e} 且 rel_epsilon={:.0e}:\n{}",
+            label,
+            failures.len(),
+            abs_epsilon,
+            rel_epsilon,
             failures.join("\n")
         );
     }

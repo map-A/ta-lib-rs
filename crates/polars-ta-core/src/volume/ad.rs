@@ -53,36 +53,26 @@ pub fn ad(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> 
         return vec![];
     }
 
-    let mut out = vec![0.0_f64; n];
-
     // 两阶段：阶段1 计算每个 clv*volume（无跨元素依赖，LLVM 可向量化），
     //         阶段2 就地前缀求和（串行累积）。
-    // SAFETY: 所有索引均在 [0, n) 内
-    unsafe {
-        let h = high.as_ptr();
-        let l = low.as_ptr();
-        let c = close.as_ptr();
-        let v = volume.as_ptr();
-        let o = out.as_mut_ptr();
 
-        // 阶段1：branchless clv*vol — range==0 时 (2c-h-l)=0，分子为 0，结果为 0
-        for i in 0..n {
-            let hi = *h.add(i);
-            let lo = *l.add(i);
-            let cl = *c.add(i);
-            let vo = *v.add(i);
-            let range = hi - lo;
-            // 用 1.0 替代 0 的分母，避免 NaN；此时分子也为 0，结果仍为 0
-            let safe_den = range + f64::from(range == 0.0);
-            *o.add(i) = (2.0 * cl - hi - lo) * vo / safe_den;
-        }
+    // 阶段1：clv*vol，hl==0 时结果为 0（与 ta-lib 行为一致）
+    // 使用 Vec::with_capacity + push 避免零初始化（节省 n*8 字节 memset）
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let hl = high[i] - low[i];
+        out.push(if hl != 0.0 {
+            (2.0 * close[i] - high[i] - low[i]) * volume[i] / hl
+        } else {
+            0.0
+        });
+    }
 
-        // 阶段2：就地前缀求和
-        let mut acc = 0.0_f64;
-        for i in 0..n {
-            acc += *o.add(i);
-            *o.add(i) = acc;
-        }
+    // 阶段2：就地前缀求和
+    let mut acc = 0.0_f64;
+    for v in &mut out {
+        acc += *v;
+        *v = acc;
     }
 
     out

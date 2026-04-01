@@ -1,8 +1,9 @@
 //! BETA — 滚动回归斜率（收益率序列）
 //!
-//! 计算 real0 收益率对 real1 收益率的线性回归斜率，窗口大小为 period。
+//! 计算 real1 收益率对 real0 收益率的线性回归斜率，窗口大小为 period。
+//! 与 ta-lib 一致：分母使用 Σr0²（real0 的方差），而非 Σr1²。
 //!
-//! slope = (n * Σr0r1 - Σr0 * Σr1) / (n * Σr1² - (Σr1)²)
+//! slope = (n * Σr0r1 - Σr0 * Σr1) / (n * Σr0² - (Σr0)²)
 //!
 //! lookback = period（需要 period+1 个价格点才能产生 period 个收益率）
 
@@ -19,7 +20,7 @@ pub fn beta(real0: &[f64], real1: &[f64], period: usize) -> Vec<f64> {
     let mut sum_r0 = 0.0_f64;
     let mut sum_r1 = 0.0_f64;
     let mut sum_r0r1 = 0.0_f64;
-    let mut sum_r1sq = 0.0_f64;
+    let mut sum_r0sq = 0.0_f64;
 
     // 初始化第一个窗口
     for i in 0..period {
@@ -28,15 +29,16 @@ pub fn beta(real0: &[f64], real1: &[f64], period: usize) -> Vec<f64> {
         sum_r0 += r0;
         sum_r1 += r1;
         sum_r0r1 += r0 * r1;
-        sum_r1sq += r1 * r1;
+        sum_r0sq += r0 * r0;
     }
 
-    let calc = |sr0: f64, sr1: f64, sr0r1: f64, sr1sq: f64| -> f64 {
-        let denom = p * sr1sq - sr1 * sr1;
+    // 分母使用 r0 的方差（与 ta-lib 一致）
+    let calc = |sr0: f64, sr1: f64, sr0r1: f64, sr0sq: f64| -> f64 {
+        let denom = p * sr0sq - sr0 * sr0;
         if denom == 0.0 { 0.0 } else { (p * sr0r1 - sr0 * sr1) / denom }
     };
 
-    out.push(calc(sum_r0, sum_r1, sum_r0r1, sum_r1sq));
+    out.push(calc(sum_r0, sum_r1, sum_r0r1, sum_r0sq));
 
     for i in period..n - 1 {
         let old_r0 = (real0[i - period + 1] - real0[i - period]) / real0[i - period];
@@ -47,9 +49,9 @@ pub fn beta(real0: &[f64], real1: &[f64], period: usize) -> Vec<f64> {
         sum_r0 += new_r0 - old_r0;
         sum_r1 += new_r1 - old_r1;
         sum_r0r1 += new_r0 * new_r1 - old_r0 * old_r1;
-        sum_r1sq += new_r1 * new_r1 - old_r1 * old_r1;
+        sum_r0sq += new_r0 * new_r0 - old_r0 * old_r0;
 
-        out.push(calc(sum_r0, sum_r1, sum_r0r1, sum_r1sq));
+        out.push(calc(sum_r0, sum_r1, sum_r0r1, sum_r0sq));
     }
 
     out

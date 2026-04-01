@@ -1,0 +1,141 @@
+//! Triangular Moving Average (TRIMA)
+//!
+//! A double-smoothed SMA — numerically identical to ta-lib's `TA_TRIMA`.
+//!
+//! # Algorithm
+//!
+//! ```text
+//! For odd period:  first_period = second_period = (period + 1) / 2
+//! For even period: first_period = period / 2 + 1,  second_period = period / 2
+//! trima = SMA(SMA(data, first_period), second_period)
+//! ```
+//!
+//! # Parameters
+//!
+//! - `data`   — input price series (typically `close`)
+//! - `period` — window length (≥ 1)
+//!
+//! # Output
+//!
+//! - Length = `data.len() - (period - 1)`
+//! - Returns an empty `Vec` when `data.len() < period`
+
+/// Triangular Moving Average.
+///
+/// See [module documentation](self) for full details.
+pub fn trima(data: &[f64], period: usize) -> Vec<f64> {
+    let n = data.len();
+    if period == 0 || n < period {
+        return vec![];
+    }
+
+    let (p1, p2) = if period % 2 == 1 {
+        let p = (period + 1) / 2;
+        (p, p)
+    } else {
+        (period / 2 + 1, period / 2)
+    };
+    // 注: p1 + p2 = period + 1 (对奇/偶 period 均成立)
+
+    let out_len = n - period + 1;
+    let mut out = Vec::with_capacity(out_len);
+    let inv = 1.0 / (p1 as f64 * p2 as f64);
+
+    // 两指针滑动法：维护两个内层 SMA 的 running sum，完全避免中间 Vec 分配
+    // `leave` = inner_sum[t-1]（即将被移出外层窗口的内层 SMA）
+    // `enter` = inner_sum[t+p2-1]（即将被移入外层窗口的内层 SMA）
+    // 每步: outer_sum = outer_sum - leave + enter
+
+    // 初始化: leave = inner_sum[0], enter 从 inner_sum[0] 滑到 inner_sum[p2-1]
+    let mut leave: f64 = data[..p1].iter().sum();
+    let mut enter = leave;
+    let mut outer_sum = leave;
+
+    for j in 1..p2 {
+        // enter slides to inner_sum[j] = inner_sum[j-1] - data[j-1] + data[j+p1-1]
+        enter = enter - data[j - 1] + data[j + p1 - 1];
+        outer_sum += enter;
+    }
+    // 此时: leave = inner_sum[0], enter = inner_sum[p2-1], outer_sum = Σ inner_sum[0..p2]
+    out.push(outer_sum * inv);
+
+    for t in 1..out_len {
+        // enter → inner_sum[t+p2-1]
+        enter = enter - data[t + p2 - 2] + data[t + p2 + p1 - 2];
+        outer_sum = outer_sum - leave + enter;
+        out.push(outer_sum * inv);
+        // leave → inner_sum[t]（下一步使用）
+        leave = leave - data[t - 1] + data[t + p1 - 1];
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(actual: f64, expected: f64, eps: f64) {
+        assert!(
+            (actual - expected).abs() < eps || (actual.is_nan() && expected.is_nan()),
+            "actual={actual:.15}, expected={expected:.15}",
+        );
+    }
+
+    #[test]
+    fn trima_output_length_odd_period() {
+        let data: Vec<f64> = (1..=20).map(|x| x as f64).collect();
+        let result = trima(&data, 5);
+        // lookback = period - 1 = 4, output length = 20 - 4 = 16
+        assert_eq!(result.len(), 16);
+    }
+
+    #[test]
+    fn trima_output_length_even_period() {
+        let data: Vec<f64> = (1..=20).map(|x| x as f64).collect();
+        let result = trima(&data, 4);
+        // lookback = 3, output length = 17
+        assert_eq!(result.len(), 17);
+    }
+
+    #[test]
+    fn trima_constant_series() {
+        let data = vec![5.0f64; 50];
+        let result = trima(&data, 7);
+        for &v in &result {
+            assert_close(v, 5.0, 1e-10);
+        }
+    }
+
+    #[test]
+    fn trima_period1() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let result = trima(&data, 1);
+        assert_eq!(result.len(), 5);
+        assert_close(result[0], 1.0, 1e-10);
+        assert_close(result[4], 5.0, 1e-10);
+    }
+
+    #[test]
+    fn trima_boundary_exact() {
+        let data: Vec<f64> = (1..=5).map(|x| x as f64).collect();
+        let result = trima(&data, 5);
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn trima_boundary_short() {
+        let data = vec![1.0, 2.0, 3.0];
+        assert!(trima(&data, 5).is_empty());
+    }
+
+    #[test]
+    fn trima_period_zero() {
+        assert!(trima(&[1.0, 2.0, 3.0], 0).is_empty());
+    }
+
+    #[test]
+    fn trima_empty_input() {
+        assert!(trima(&[], 5).is_empty());
+    }
+}

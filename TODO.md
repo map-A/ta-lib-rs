@@ -96,54 +96,63 @@
 
 ---
 
-## Phase 2：扩展至 80 指标（Month 4–6）
+## Phase 2：扩展至 80 指标 ✅ 全部完成
+
+> 所有 32 个 Phase 2 指标 Golden Test 全通过（共 324 个用例通过，43 个 `#[ignore]` — NaN 传播/多输入行为）
+>
+> 最后更新：Phase 2 全部完成，T3/KAMA/TRIMA 性能优化完毕，APO/PPO/CMO 算法 bug 已修复
 
 ### 趋势类扩展
 
-| # | 指标 | 函数 | 状态 |
-|---|------|------|------|
-| 24 | KAMA (Kaufman Adaptive MA) | `kama` | ⏳ |
-| 25 | TRIMA (Triangular MA) | `trima` | ⏳ |
-| 26 | T3 (Triple Exponential MA) | `t3` | ⏳ |
-| 27 | MIDPOINT | `midpoint` | ⏳ |
-| 28 | MIDPRICE | `midprice` | ⏳ |
-| 29 | HT_TRENDLINE | `ht_trendline` | ⏳ |
-| 30 | MAMA (Mesa Adaptive MA) | `mama` | ⏳ |
+| # | 指标 | 函数 | lookback | Golden Test | 性能 vs ta-lib | Rust 1M | 状态 |
+|---|------|------|----------|-------------|----------------|---------|------|
+| 24 | KAMA (Kaufman Adaptive MA) | `kama` | period | ✅ 7/7 | 64% | 416 M/s | ⚠️ |
+| 25 | TRIMA (Triangular MA) | `trima` | period-1 | ✅ 7/7 | 82%~94% | 452~522 M/s | ✅ |
+| 26 | T3 (Triple Exponential MA) | `t3` | 6*(period-1) | ✅ 7/7 | 83% | 464 M/s | ✅ |
+| 27 | MIDPOINT | `midpoint` | period-1 | ✅ 6/7¹ | — | — | ✅ |
+| 28 | MIDPRICE | `midprice` | period-1 | ✅ 6/7¹ | — | — | ✅ |
+| 29 | HT_TRENDLINE | `ht_trendline` | 63 | ✅ 7/7 | — | — | ✅ |
+| 30 | MAMA (Mesa Adaptive MA) | `mama` | 32 | ✅ 7/7 | — | — | ✅ |
 
 ### 震荡类扩展
 
-| # | 指标 | 函数 | 状态 |
-|---|------|------|------|
-| 31 | CMO (Chande Momentum) | `cmo` | ⏳ |
-| 32 | DX (Directional Movement) | `dx` | ⏳ |
-| 33 | MINUS_DI | `minus_di` | ⏳ |
-| 34 | PLUS_DI | `plus_di` | ⏳ |
-| 35 | MINUS_DM | `minus_dm` | ⏳ |
-| 36 | PLUS_DM | `plus_dm` | ⏳ |
-| 37 | PPO (Percentage Price Osc) | `ppo` | ⏳ |
-| 38 | ROC | `roc` | ⏳ |
-| 39 | ROCP | `rocp` | ⏳ |
-| 40 | ROCR | `rocr` | ⏳ |
-| 41 | ROCR100 | `rocr100` | ⏳ |
-| 42 | MOM (Momentum) | `mom` | ⏳ |
-| 43 | TRIX | `trix` | ⏳ |
-| 44 | APO (Absolute Price Osc) | `apo` | ⏳ |
-| 45 | BOP (Balance of Power) | `bop` | ⏳ |
-| 46 | ADXR | `adxr` | ⏳ |
+| # | 指标 | 函数 | lookback | Golden Test | 性能 vs ta-lib | Rust 1M | 状态 |
+|---|------|------|----------|-------------|----------------|---------|------|
+| 31 | CMO (Chande Momentum) | `cmo` | period | ✅ 6/7¹ | 233% | 1125 M/s | ✅⚡ |
+| 32 | DX (Directional Movement) | `dx` | period | ✅ 6/7¹ | 123% | 288 M/s | ✅⚡ |
+| 33 | MINUS_DI | `minus_di` | period | ✅ 6/7¹ | 95% | 221 M/s | ✅⚡ |
+| 34 | PLUS_DI | `plus_di` | period | ✅ 6/7¹ | 90% | 212 M/s | ✅ |
+| 35 | MINUS_DM | `minus_dm` | period-1 | ✅ 6/7¹ | 95% | 360 M/s | ✅⚡ |
+| 36 | PLUS_DM | `plus_dm` | period-1 | ✅ 6/7¹ | 95% | 356 M/s | ✅⚡ |
+| 37 | PPO (Percentage Price Osc) | `ppo` | slow-1 | ✅ 6/7¹ | 164% | 1060 M/s | ✅⚡ |
+| 38 | ROC | `roc` | period | ✅ 7/7 | 50% | 1135 M/s | ⚠️ |
+| 39 | ROCP | `rocp` | period | ✅ 7/7 | 31% | 645 M/s | ⚠️ |
+| 40 | ROCR | `rocr` | period | ✅ 7/7 | 34% | 740 M/s | ⚠️ |
+| 41 | ROCR100 | `rocr100` | period | ✅ 7/7 | 32% | 733 M/s | ⚠️ |
+| 42 | MOM (Momentum) | `mom` | period | ✅ 7/7 | 16% | 1300 M/s | ⚠️² |
+| 43 | TRIX | `trix` | 3*(period-1) | ✅ 7/7 | 90% | 219 M/s | ✅ |
+| 44 | APO (Absolute Price Osc) | `apo` | slow-1 | ✅ 6/7¹ | 160% | 1035 M/s | ✅⚡ |
+| 45 | BOP (Balance of Power) | `bop` | 0 | ✅ 6/7¹ | 30% | 761 M/s | ⚠️² |
+| 46 | ADXR | `adxr` | 3*period-2 | ✅ 6/7¹ | 152% | 58 M/s | ✅⚡ |
 
 ### 统计类
 
-| # | 指标 | 函数 | 状态 |
-|---|------|------|------|
-| 47 | BETA | `beta` | ⏳ |
-| 48 | CORREL | `correl` | ⏳ |
-| 49 | LINEARREG | `linearreg` | ⏳ |
-| 50 | LINEARREG_ANGLE | `linearreg_angle` | ⏳ |
-| 51 | LINEARREG_INTERCEPT | `linearreg_intercept` | ⏳ |
-| 52 | LINEARREG_SLOPE | `linearreg_slope` | ⏳ |
-| 53 | STDDEV | `stddev` | ⏳ |
-| 54 | TSF (Time Series Forecast) | `tsf` | ⏳ |
-| 55 | VAR (Variance) | `var` | ⏳ |
+| # | 指标 | 函数 | lookback | Golden Test | 性能 vs ta-lib | Rust 1M | 状态 |
+|---|------|------|----------|-------------|----------------|---------|------|
+| 47 | BETA | `beta` | period-1 | ✅ 6/7¹ | 81% | 187 M/s | ✅ |
+| 48 | CORREL | `correl` | period-1 | ✅ 7/7 | 103% | 236 M/s | ✅⚡ |
+| 49 | LINEARREG | `linearreg` | period-1 | ✅ 7/7 | 272% | 623 M/s | ✅⚡ |
+| 50 | LINEARREG_ANGLE | `linearreg_angle` | period-1 | ✅ 7/7 | — | — | ✅ |
+| 51 | LINEARREG_INTERCEPT | `linearreg_intercept` | period-1 | ✅ 7/7 | — | — | ✅ |
+| 52 | LINEARREG_SLOPE | `linearreg_slope` | period-1 | ✅ 7/7 | — | — | ✅ |
+| 53 | STDDEV | `stddev` | period-1 | ✅ 7/7 | 100% | 231 M/s | ✅⚡ |
+| 54 | TSF (Time Series Forecast) | `tsf` | period-1 | ✅ 7/7 | 290% | 665 M/s | ✅⚡ |
+| 55 | VAR (Variance) | `var` | period-1 | ✅ 7/7 | 92% | 213 M/s | ✅ |
+
+> ¹ NaN 传播行为不同：ta-lib 跳过多输入指标中的 NaN；本库遵循 IEEE 754 传播。相关用例已标记 `#[ignore]`。
+> ² MOM/BOP/ROC* 比率低：ta-lib 对简单元素运算使用 ARM NEON SIMD + 预分配输出数组；
+>   本库每次调用分配新 Vec（冷写入 8MB），导致测量比率偏低。实际算法正确且 Rust 速度高（>600 M/s），
+>   属于 API 设计差异（我们返回 Vec，ta-lib 填充预分配 numpy 数组）。
 
 ---
 
@@ -151,30 +160,58 @@
 
 以下指标将在 Phase 3 逐步添加（完整列表见 ta-lib 文档）。
 
-### 价格变换类
+### 价格变换类（Price Transform）✅ 全部完成
 
-| 指标 | 状态 |
-|------|------|
-| AVGPRICE | ⏳ |
-| MEDPRICE | ⏳ |
-| TYPPRICE | ⏳ |
-| WCLPRICE | ⏳ |
+| # | 指标 | 函数 | lookback | Golden Test | 状态 |
+|---|------|------|----------|-------------|------|
+| 56 | AVGPRICE (Average Price) | `avgprice` | 0 | ✅ 5/5 | ✅ |
+| 57 | MEDPRICE (Median Price) | `medprice` | 0 | ✅ 5/5 | ✅ |
+| 58 | TYPPRICE (Typical Price) | `typprice` | 0 | ✅ 5/5 | ✅ |
+| 59 | WCLPRICE (Weighted Close) | `wclprice` | 0 | ✅ 5/5 | ✅ |
 
-### 希尔伯特变换类（Out of Scope）
+### 动量指标（Momentum）— 新增
 
-| 指标 | 状态 | 说明 |
-|------|------|------|
-| HT_DCPERIOD | ❌ | 希尔伯特变换，PRD 明确不做 |
-| HT_DCPHASE | ❌ | 希尔伯特变换，PRD 明确不做 |
-| HT_PHASOR | ❌ | 希尔伯特变换，PRD 明确不做 |
-| HT_SINE | ❌ | 希尔伯特变换，PRD 明确不做 |
-| HT_TRENDMODE | ❌ | 希尔伯特变换，PRD 明确不做 |
+| # | 指标 | 函数 | lookback | Golden Test | 状态 |
+|---|------|------|----------|-------------|------|
+| 55a | AROONOSC (Aroon Oscillator) | `aroonosc` | period | ✅ 6/7¹ | ✅ |
+| 55b | STOCHF (Fast Stochastic) | `stochf` | fastk+fastd-2 | ✅ 7/7 | ✅ |
 
-### Pattern Recognition（Phase 1/2 不做）
+> ¹ `boundary_short`（全 NaN 输入）跳过比较。
 
-| 指标 | 状态 |
-|------|------|
-| CDL* (蜡烛形态) | ❌ Phase 1/2 Out of Scope |
+### 趋势指标（Trend）— 新增
+
+| # | 指标 | 函数 | lookback | Golden Test | 状态 |
+|---|------|------|----------|-------------|------|
+| 55c | MA (Moving Average dispatcher) | `ma` | period-1 | ✅ 7/7 | ✅ |
+| 55d | MACDEXT (MACD Ext MA types) | `macdext` | slow+signal-2 | ✅ 7/7 | ✅ |
+| 55e | MACDFIX (MACD Fixed 12/26) | `macdfix` | 26+signal-2 | ✅ 7/7 | ✅ |
+| 55f | SAREXT (Extended Parabolic SAR) | `sarext` | 1 | ✅ 6/7¹ | ✅ |
+
+> ¹ `boundary_short`（全 NaN 输入）跳过比较。
+
+### 数学变换类（Math Transform）✅ 全部完成
+
+| # | 指标 | 函数 | lookback | Golden Test | 状态 |
+|---|------|------|----------|-------------|------|
+| 60 | ACOS | `acos` | 0 | ✅ 5/5 | ✅ |
+| 61 | ASIN | `asin` | 0 | ✅ 5/5 | ✅ |
+| 62 | ATAN | `atan` | 0 | ✅ 5/5 | ✅ |
+| 63 | CEIL | `ceil` | 0 | ✅ 5/5 | ✅ |
+| 64 | COS | `cos` | 0 | ✅ 5/5 | ✅ |
+| 65 | COSH | `cosh` | 0 | ✅ 5/5¹ | ✅ |
+| 66 | EXP | `exp` | 0 | ✅ 5/5² | ✅ |
+| 67 | FLOOR | `floor` | 0 | ✅ 5/5 | ✅ |
+| 68 | LN | `ln` | 0 | ✅ 5/5 | ✅ |
+| 69 | LOG10 | `log10` | 0 | ✅ 5/5 | ✅ |
+| 70 | SIN | `sin` | 0 | ✅ 5/5 | ✅ |
+| 71 | SINH | `sinh` | 0 | ✅ 5/5¹ | ✅ |
+| 72 | SQRT | `sqrt` | 0 | ✅ 5/5 | ✅ |
+| 73 | TAN | `tan` | 0 | ✅ 5/5³ | ✅ |
+| 74 | TANH | `tanh` | 0 | ✅ 5/5 | ✅ |
+
+> ¹ COSH/SINH 对大数输入（price > ~710）溢出至 Infinity，ta-lib 序列化为 null，Rust 输出 f64::INFINITY（均跳过比较）；有限值使用相对误差 1e-10 验证。
+> ² EXP 同上 — 价格数据普遍超出 exp 有效范围；有限值使用相对误差 1e-10 验证。
+> ³ TAN 在奇点附近值很大，使用 abs_epsilon=1e-8 + rel_epsilon=1e-10 验证。
 
 ---
 
@@ -197,4 +234,4 @@
 
 ---
 
-*最后更新：Phase 0 完成（SMA 完整闭环）*
+*最后更新：Phase 3 价格变换 + 数学变换全部完成（74 个指标）；新增 6 个动量/趋势指标（AROONOSC、STOCHF、MA、MACDEXT、MACDFIX、SAREXT）共 80 个指标。新增 `assert_close_relative` 支持大值相对误差验证，修复 infinity 序列化为 null。MACDFIX 使用固定 k 值（0.15/0.075）匹配 ta-lib 内部 FIX 模式。*

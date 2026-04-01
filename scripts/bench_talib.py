@@ -342,6 +342,339 @@ def bench_natr(sizes: list[int], period: int = 14) -> list[dict]:
     return results
 
 
+# ─── Phase 2 振荡器 ────────────────────────────────────────────────────────────
+
+def bench_mom(sizes: list[int], period: int = 10) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MOM(d, timeperiod=period), data)
+        r["indicator"] = "mom"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_roc(sizes: list[int], period: int = 10) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ROC(d, timeperiod=period), data)
+        r["indicator"] = "roc"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_rocp(sizes: list[int], period: int = 10) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ROCP(d, timeperiod=period), data)
+        r["indicator"] = "rocp"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_rocr(sizes: list[int], period: int = 10) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ROCR(d, timeperiod=period), data)
+        r["indicator"] = "rocr"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_rocr100(sizes: list[int], period: int = 10) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.ROCR100(d, timeperiod=period), data)
+        r["indicator"] = "rocr100"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_cmo(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.CMO(d, timeperiod=period), data)
+        r["indicator"] = "cmo"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_apo(sizes: list[int], fast: int = 12, slow: int = 26) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.APO(d, fastperiod=fast, slowperiod=slow), data)
+        r["indicator"] = "apo"
+        r["params"] = {"fast": fast, "slow": slow}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_ppo(sizes: list[int], fast: int = 12, slow: int = 26) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.PPO(d, fastperiod=fast, slowperiod=slow), data)
+        r["indicator"] = "ppo"
+        r["params"] = {"fast": fast, "slow": slow}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_trix(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.TRIX(d, timeperiod=period), data)
+        r["indicator"] = "trix"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_bop(sizes: list[int]) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        open_ = close * 1.005
+        r = bench_fn(lambda d: talib.BOP(d[0], d[1], d[2], d[3]), (open_, high, low, close))
+        r["indicator"] = "bop"
+        r["params"] = {}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_minus_dm(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.MINUS_DM(d[0], d[1], timeperiod=period), (high, low))
+        r["indicator"] = "minus_dm"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_plus_dm(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.PLUS_DM(d[0], d[1], timeperiod=period), (high, low))
+        r["indicator"] = "plus_dm"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_minus_di(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.MINUS_DI(d[0], d[1], d[2], timeperiod=period), (high, low, close))
+        r["indicator"] = "minus_di"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_plus_di(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.PLUS_DI(d[0], d[1], d[2], timeperiod=period), (high, low, close))
+        r["indicator"] = "plus_di"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_dx(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.DX(d[0], d[1], d[2], timeperiod=period), (high, low, close))
+        r["indicator"] = "dx"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_adxr(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, close, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.ADXR(d[0], d[1], d[2], timeperiod=period), (high, low, close))
+        r["indicator"] = "adxr"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 2 统计 ──────────────────────────────────────────────────────────────
+
+def bench_beta(sizes: list[int], period: int = 5) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = data + 1.0
+        r = bench_fn(lambda d: talib.BETA(d[0], d[1], timeperiod=period), (data, data2))
+        r["indicator"] = "beta"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_correl(sizes: list[int], period: int = 30) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        data2 = data + 1.0
+        r = bench_fn(lambda d: talib.CORREL(d[0], d[1], timeperiod=period), (data, data2))
+        r["indicator"] = "correl"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_linearreg(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.LINEARREG(d, timeperiod=period), data)
+        r["indicator"] = "linearreg"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_stddev(sizes: list[int], period: int = 5, nbdev: float = 1.0) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.STDDEV(d, timeperiod=period, nbdev=nbdev), data)
+        r["indicator"] = "stddev"
+        r["params"] = {"period": period, "nbdev": nbdev}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_tsf(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.TSF(d, timeperiod=period), data)
+        r["indicator"] = "tsf"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_var(sizes: list[int], period: int = 5, nbdev: float = 1.0) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.VAR(d, timeperiod=period, nbdev=nbdev), data)
+        r["indicator"] = "var"
+        r["params"] = {"period": period, "nbdev": nbdev}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+# ─── Phase 2 趋势 ──────────────────────────────────────────────────────────────
+
+def bench_kama(sizes: list[int], period: int = 30) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.KAMA(d, timeperiod=period), data)
+        r["indicator"] = "kama"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_trima(sizes: list[int], period: int = 20) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.TRIMA(d, timeperiod=period), data)
+        r["indicator"] = "trima"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_t3(sizes: list[int], period: int = 5) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.T3(d, timeperiod=period), data)
+        r["indicator"] = "t3"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_midpoint(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        data = make_bench_data(size)
+        r = bench_fn(lambda d: talib.MIDPOINT(d, timeperiod=period), data)
+        r["indicator"] = "midpoint"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
+def bench_midprice(sizes: list[int], period: int = 14) -> list[dict]:
+    results = []
+    for size in sizes:
+        high, low, _, _ = make_ohlcv(size)
+        r = bench_fn(lambda d: talib.MIDPRICE(d[0], d[1], timeperiod=period), (high, low))
+        r["indicator"] = "midprice"
+        r["params"] = {"period": period}
+        r["implementation"] = "talib_c"
+        results.append(r)
+    return results
+
+
 BENCH_FUNCTIONS = {
     "sma":      bench_sma,
     "ema":      bench_ema,
@@ -364,6 +697,36 @@ BENCH_FUNCTIONS = {
     "trange":   bench_trange,
     "atr":      bench_atr,
     "natr":     bench_natr,
+    # Phase 2 振荡器
+    "mom":      bench_mom,
+    "roc":      bench_roc,
+    "rocp":     bench_rocp,
+    "rocr":     bench_rocr,
+    "rocr100":  bench_rocr100,
+    "cmo":      bench_cmo,
+    "apo":      bench_apo,
+    "ppo":      bench_ppo,
+    "trix":     bench_trix,
+    "bop":      bench_bop,
+    "minus_dm": bench_minus_dm,
+    "plus_dm":  bench_plus_dm,
+    "minus_di": bench_minus_di,
+    "plus_di":  bench_plus_di,
+    "dx":       bench_dx,
+    "adxr":     bench_adxr,
+    # Phase 2 统计
+    "beta":     bench_beta,
+    "correl":   bench_correl,
+    "linearreg": bench_linearreg,
+    "stddev":   bench_stddev,
+    "tsf":      bench_tsf,
+    "var":      bench_var,
+    # Phase 2 趋势
+    "kama":     bench_kama,
+    "trima":    bench_trima,
+    "t3":       bench_t3,
+    "midpoint": bench_midpoint,
+    "midprice": bench_midprice,
 }
 
 SIZES = [100, 10_000, 1_000_000]
