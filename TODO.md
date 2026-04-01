@@ -69,7 +69,7 @@
 | # | 指标 | 函数 | lookback | Golden Test | 性能 vs ta-lib | Rust 1M | 状态 |
 |---|------|------|----------|-------------|----------------|---------|------|
 | 18 | On Balance Volume | `obv` | 0 | ✅ 5/7¹ | 83% | 1193 M/s | ✅ |
-| 19 | Chaikin A/D Line | `ad` | 0 | ✅ 5/7¹ | 86% | 955 M/s | ✅ |
+| 19 | Chaikin A/D Line | `ad` | 0 | ✅ 5/7¹ | 118% | 1407 M/s | ✅⚡ |
 | 20 | Chaikin A/D Oscillator | `adosc` | slow-1 | ✅ 5/7¹ | 82% | 449 M/s | ✅ |
 
 ### 波动率类（Volatility）
@@ -93,7 +93,7 @@
 | adx | 41% | 110% | 消除6个中间Vec，mul-form Wilder平滑 |
 | obv | 56% | 83% | 无分支累积，预分配输出 |
 | adosc | 56% | 82% | 内联 AD 计算，消除中间 Vec |
-| ad | 77% | 86% | 两阶段(可向量化CLV积 + 串行前缀和) |
+| ad | 77% | 118% | 单次遍历原始指针，消除两阶段双重内存访问 |
 | trange | 38% | 92% | 预切片对齐数组 + unsafe get_unchecked |
 
 ---
