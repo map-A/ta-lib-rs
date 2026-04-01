@@ -32,7 +32,7 @@ RED    = "\033[91m"
 BOLD   = "\033[1m"
 RESET  = "\033[0m"
 
-THRESHOLD_PASS   = 0.95   # ≥95%: green ✅
+THRESHOLD_PASS   = 1.00   # ≥100%: green ✅
 THRESHOLD_WARN   = 0.80   # ≥80%: yellow ⚠️
 # <80%: red ❌
 
