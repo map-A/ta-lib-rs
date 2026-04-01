@@ -26,7 +26,10 @@
 //! - [`volume`] — Volume-based indicators
 //! - [`volatility`] — Volatility measures
 
+pub mod math_ops;
+pub mod math_transform;
 pub mod oscillator;
+pub mod price_transform;
 pub mod trend;
 pub mod volatility;
 pub mod volume;
