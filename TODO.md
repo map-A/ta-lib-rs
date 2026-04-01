@@ -189,6 +189,24 @@
 
 > ¹ `boundary_short`（全 NaN 输入）跳过比较。
 
+### 数学运算类（Math Operators）✅ 全部完成
+
+| # | 指标 | 函数 | lookback | Golden Test | 状态 |
+|---|------|------|----------|-------------|------|
+| 75 | ADD (Vector Addition) | `add` | 0 | ✅ 6/7¹ | ✅ |
+| 76 | DIV (Vector Division) | `div` | 0 | ✅ 6/7¹ | ✅ |
+| 77 | MAX (Highest Value) | `max` | period-1 | ✅ 6/7¹ | ✅ |
+| 78 | MAXINDEX (Index of Highest) | `maxindex` | period-1 | ✅ 6/7¹ | ✅ |
+| 79 | MIN (Lowest Value) | `min` | period-1 | ✅ 6/7¹ | ✅ |
+| 80 | MININDEX (Index of Lowest) | `minindex` | period-1 | ✅ 6/7¹ | ✅ |
+| 81 | MINMAX (Lowest and Highest) | `minmax` | period-1 | ✅ 6/7¹ | ✅ |
+| 82 | MINMAXINDEX (Index of Lowest+Highest) | `minmaxindex` | period-1 | ✅ 6/7¹ | ✅ |
+| 83 | MULT (Vector Multiplication) | `mult` | 0 | ✅ 6/7¹ | ✅ |
+| 84 | SUB (Vector Subtraction) | `sub` | 0 | ✅ 6/7¹ | ✅ |
+| 85 | SUM (Summation over period) | `sum` | period-1 | ✅ 6/7¹ | ✅ |
+
+> ¹ `with_nan_5pct` 跳过（ta-lib 在多输入窗口中 NaN 处理方式不同）。
+
 ### 数学变换类（Math Transform）✅ 全部完成
 
 | # | 指标 | 函数 | lookback | Golden Test | 状态 |
@@ -234,4 +252,4 @@
 
 ---
 
-*最后更新：Phase 3 价格变换 + 数学变换全部完成（74 个指标）；新增 6 个动量/趋势指标（AROONOSC、STOCHF、MA、MACDEXT、MACDFIX、SAREXT）共 80 个指标。新增 `assert_close_relative` 支持大值相对误差验证，修复 infinity 序列化为 null。MACDFIX 使用固定 k 值（0.15/0.075）匹配 ta-lib 内部 FIX 模式。*
+*最后更新：Phase 3 全部完成（91 个指标）。价格变换 4 个，数学变换 15 个，数学运算 11 个，新增动量/趋势指标 6 个（AROONOSC、STOCHF、MA、MACDEXT、MACDFIX、SAREXT）。SAREXT 短仓输出为负数（匹配 ta-lib 符号约定）。MACDFIX 使用固定 k 值（0.15/0.075）匹配 ta-lib 内部 FIX 模式。全套 807 个测试通过，0 个失败。*

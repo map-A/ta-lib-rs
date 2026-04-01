@@ -37,7 +37,6 @@
 //! - Length = `data.len() - 6 * (period - 1)`
 //! - Returns an empty `Vec` when `data.len() <= 6 * (period - 1)`
 
-use crate::trend::ema::ema;
 
 /// T3 Moving Average.
 ///

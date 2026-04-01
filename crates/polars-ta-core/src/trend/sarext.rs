@@ -121,7 +121,8 @@ pub fn sarext(
             }
         };
 
-        out.push(new_sar);
+        // ta-lib SAREXT convention: negative output signals a short position
+        out.push(if is_long { new_sar } else { -new_sar });
         sar = new_sar;
     }
 
@@ -159,7 +160,8 @@ mod tests {
 
     #[test]
     fn sarext_default_equals_sar() {
-        // default SAREXT params == SAR(0.02, 0.20)
+        // SAREXT(default) == SAR(0.02, 0.20) in absolute value;
+        // SAREXT negates the output for short positions while SAR does not.
         let n = 50;
         let high: Vec<f64> = (0..n).map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1).collect();
         let low: Vec<f64> = high.iter().map(|&h| h - 2.0).collect();
@@ -167,7 +169,7 @@ mod tests {
         let std = sar(&high, &low, 0.02, 0.20);
         assert_eq!(ext.len(), std.len());
         for (a, b) in ext.iter().zip(std.iter()) {
-            assert_close(*a, *b, 1e-12);
+            assert_close(a.abs(), *b, 1e-12);
         }
     }
 

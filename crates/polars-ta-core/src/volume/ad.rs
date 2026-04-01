@@ -53,26 +53,31 @@ pub fn ad(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> 
         return vec![];
     }
 
-    // 两阶段：阶段1 计算每个 clv*volume（无跨元素依赖，LLVM 可向量化），
-    //         阶段2 就地前缀求和（串行累积）。
-
-    // 阶段1：clv*vol，hl==0 时结果为 0（与 ta-lib 行为一致）
-    // 使用 Vec::with_capacity + push 避免零初始化（节省 n*8 字节 memset）
+    // 单次遍历：直接累积到输出，避免两阶段（写中间数组 + 前缀求和）的双重内存访问。
+    // 原始指针消除边界检查，与 ta-lib 的 C 单循环结构对齐。
+    //
+    // SAFETY: set_len 后循环对每个索引恰好写入一次，读取前所有位置均已初始化。
     let mut out = Vec::with_capacity(n);
-    for i in 0..n {
-        let hl = high[i] - low[i];
-        out.push(if hl != 0.0 {
-            (2.0 * close[i] - high[i] - low[i]) * volume[i] / hl
-        } else {
-            0.0
-        });
-    }
+    unsafe { out.set_len(n) };
 
-    // 阶段2：就地前缀求和
     let mut acc = 0.0_f64;
-    for v in &mut out {
-        acc += *v;
-        *v = acc;
+    unsafe {
+        let hp = high.as_ptr();
+        let lp = low.as_ptr();
+        let cp = close.as_ptr();
+        let vp = volume.as_ptr();
+        let op = out.as_mut_ptr() as *mut f64;
+        for i in 0..n {
+            let h = *hp.add(i);
+            let l = *lp.add(i);
+            let c = *cp.add(i);
+            let v = *vp.add(i);
+            let hl = h - l;
+            if hl != 0.0 {
+                acc += (2.0 * c - h - l) * v / hl;
+            }
+            *op.add(i) = acc;
+        }
     }
 
     out
