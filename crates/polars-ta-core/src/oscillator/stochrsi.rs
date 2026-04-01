@@ -36,7 +36,6 @@
 //! ```
 
 use super::rsi::rsi;
-use std::collections::VecDeque;
 
 /// Output of the Stochastic RSI.
 pub struct StochRsiOutput {
@@ -72,70 +71,93 @@ pub fn stochrsi(
         return empty;
     }
 
-    // Compute fastk from RSI values using O(n) sliding min/max deques
+    // Compute fastk from RSI values using O(n) power-of-2 ring-buffer monotone deques
     let fastk_raw_len = n - (fastk_period - 1);
-    let mut fastk_raw = Vec::with_capacity(fastk_raw_len);
+    let mut fastk_raw = vec![0.0f64; fastk_raw_len];
 
-    let mut max_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
-    let mut min_dq: VecDeque<usize> = VecDeque::with_capacity(fastk_period);
+    let cap = fastk_period.next_power_of_two().max(4);
+    let mask = cap - 1;
+    let mut max_buf = vec![0usize; cap];
+    let mut min_buf = vec![0usize; cap];
+    let mut max_front = 0usize;
+    let mut max_back = 0usize;
+    let mut min_front = 0usize;
+    let mut min_back = 0usize;
 
-    for i in 0..n {
-        // 移除窗口外的过期索引
-        if i >= fastk_period {
-            let window_start = i - fastk_period + 1;
-            while max_dq.front().map_or(false, |&j| j < window_start) {
-                max_dq.pop_front();
+    unsafe {
+        let rp = rsi_values.as_ptr();
+        let fk_ptr = fastk_raw.as_mut_ptr();
+
+        for i in 0..n {
+            // Evict expired indices from fronts
+            if i >= fastk_period {
+                let ws = i - fastk_period + 1;
+                while max_front != max_back && *max_buf.get_unchecked(max_front & mask) < ws {
+                    max_front = max_front.wrapping_add(1);
+                }
+                while min_front != min_back && *min_buf.get_unchecked(min_front & mask) < ws {
+                    min_front = min_front.wrapping_add(1);
+                }
             }
-            while min_dq.front().map_or(false, |&j| j < window_start) {
-                min_dq.pop_front();
+            // Maintain monotone decreasing deque for max
+            while max_front != max_back
+                && *rp.add(*max_buf.get_unchecked(max_back.wrapping_sub(1) & mask)) <= *rp.add(i)
+            {
+                max_back = max_back.wrapping_sub(1);
             }
-        }
-        // 维护单调递减队列（最大值）
-        while max_dq.back().map_or(false, |&j| rsi_values[j] <= rsi_values[i]) {
-            max_dq.pop_back();
-        }
-        max_dq.push_back(i);
-        // 维护单调递增队列（最小值）
-        while min_dq.back().map_or(false, |&j| rsi_values[j] >= rsi_values[i]) {
-            min_dq.pop_back();
-        }
-        min_dq.push_back(i);
+            *max_buf.get_unchecked_mut(max_back & mask) = i;
+            max_back = max_back.wrapping_add(1);
 
-        if i >= fastk_period - 1 {
-            let hh = rsi_values[*max_dq.front().unwrap()];
-            let ll = rsi_values[*min_dq.front().unwrap()];
-            let fk = if (hh - ll).abs() < f64::EPSILON {
-                0.0
-            } else {
-                (rsi_values[i] - ll) / (hh - ll) * 100.0
-            };
-            fastk_raw.push(fk);
+            // Maintain monotone increasing deque for min
+            while min_front != min_back
+                && *rp.add(*min_buf.get_unchecked(min_back.wrapping_sub(1) & mask)) >= *rp.add(i)
+            {
+                min_back = min_back.wrapping_sub(1);
+            }
+            *min_buf.get_unchecked_mut(min_back & mask) = i;
+            min_back = min_back.wrapping_add(1);
+
+            if i >= fastk_period - 1 {
+                let hh = *rp.add(*max_buf.get_unchecked(max_front & mask));
+                let ll = *rp.add(*min_buf.get_unchecked(min_front & mask));
+                let fk = if (hh - ll).abs() < f64::EPSILON {
+                    0.0
+                } else {
+                    (*rp.add(i) - ll) / (hh - ll) * 100.0
+                };
+                *fk_ptr.add(i + 1 - fastk_period) = fk;
+            }
         }
     }
 
     // fastd = SMA(fastk_raw, fastd_period)
     let fastd = sma(&fastk_raw, fastd_period);
 
-    // Trim fastk to match fastd length
-    let trim = fastk_raw.len() - fastd.len();
+    // Trim fastk to match fastd length (avoid to_vec copy by slicing)
+    let trim = fastk_raw_len - fastd.len();
     let fastk = fastk_raw[trim..].to_vec();
 
     StochRsiOutput { fastk, fastd }
 }
 
-/// Internal SMA helper: O(n) sliding sum with precomputed inverse.
+/// Internal SMA helper: O(n) sliding sum with pre-allocated output.
 fn sma(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
     if period == 0 || n < period {
         return vec![];
     }
+    let out_len = n - period + 1;
+    let mut out = vec![0.0f64; out_len];
     let inv = 1.0 / period as f64;
-    let mut out = Vec::with_capacity(n - period + 1);
     let mut sum: f64 = data[..period].iter().sum();
-    out.push(sum * inv);
-    for i in period..n {
-        sum += data[i] - data[i - period];
-        out.push(sum * inv);
+    out[0] = sum * inv;
+    unsafe {
+        let dp = data.as_ptr();
+        let op = out.as_mut_ptr();
+        for i in 1..out_len {
+            sum += *dp.add(i + period - 1) - *dp.add(i - 1);
+            *op.add(i) = sum * inv;
+        }
     }
     out
 }
