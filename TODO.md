@@ -35,7 +35,7 @@
 
 > 所有 23 个指标 Golden Test 全通过（共 157 个用例通过，9 个 `#[ignore]` — NaN 传播行为与 ta-lib 不同）
 >
-> 最后更新：Phase 1 全部完成，SAR/ADOSC 算法 bug 已修复，ULTOSC/CCI 性能已优化
+> 最后更新：Phase 1 全部完成，所有指标性能 ≥ 80% ta-lib C（6个低性能指标优化后全部达标）
 
 ### 趋势类（Trend）
 
@@ -47,9 +47,9 @@
 | 4 | Double EMA | `dema` | 2*(period-1) | ✅ 7/7 | 85% | 316 M/s | ✅ |
 | 5 | Triple EMA | `tema` | 3*(period-1) | ✅ 7/7 | 95% | 212 M/s | ✅⚡ |
 | 6 | MACD | `macd` | slow+signal-2 | ✅ 7/7 | 95% | 193 M/s | ✅⚡ |
-| 7 | Bollinger Bands | `bbands` | period-1 | ✅ 7/7 | 78% | 205 M/s | ⚠️ |
+| 7 | Bollinger Bands | `bbands` | period-1 | ✅ 7/7 | 225% | 593 M/s | ✅⚡ |
 | 8 | Parabolic SAR | `sar` | 1 | ✅ 6/7¹ | 103% | 333 M/s | ✅⚡ |
-| 9 | Average Directional Index | `adx` | 2*period-1 | ✅ 6/7¹ | 41% | 92 M/s | ⚠️ |
+| 9 | Average Directional Index | `adx` | 2*period-1 | ✅ 6/7¹ | 110% | 246 M/s | ✅⚡ |
 
 ### 震荡类（Oscillator）
 
@@ -68,9 +68,9 @@
 
 | # | 指标 | 函数 | lookback | Golden Test | 性能 vs ta-lib | Rust 1M | 状态 |
 |---|------|------|----------|-------------|----------------|---------|------|
-| 18 | On Balance Volume | `obv` | 0 | ✅ 5/7¹ | 56% | 808 M/s | ⚠️ |
-| 19 | Chaikin A/D Line | `ad` | 0 | ✅ 5/7¹ | 77% | 856 M/s | ⚠️ |
-| 20 | Chaikin A/D Oscillator | `adosc` | slow-1 | ✅ 5/7¹ | 56% | 308 M/s | ⚠️ |
+| 18 | On Balance Volume | `obv` | 0 | ✅ 5/7¹ | 83% | 1193 M/s | ✅ |
+| 19 | Chaikin A/D Line | `ad` | 0 | ✅ 5/7¹ | 86% | 955 M/s | ✅ |
+| 20 | Chaikin A/D Oscillator | `adosc` | slow-1 | ✅ 5/7¹ | 82% | 449 M/s | ✅ |
 
 ### 波动率类（Volatility）
 
@@ -78,21 +78,23 @@
 |---|------|------|----------|-------------|----------------|---------|------|
 | 21 | Average True Range | `atr` | period | ✅ 7/7 | 85% | 206 M/s | ✅ |
 | 22 | Normalized ATR | `natr` | period | ✅ 7/7 | 82% | 196 M/s | ✅ |
-| 23 | True Range | `trange` | 1 | ✅ 7/7 | 38% | 1248 M/s | ⚠️ |
+| 23 | True Range | `trange` | 1 | ✅ 7/7 | 92% | 2976 M/s | ✅ |
 
 > ¹ NaN 传播行为不同：ta-lib 跳过多输入指标中的 NaN；本库遵循 IEEE 754 传播。相关用例已标记 `#[ignore]`。
 > ² stochrsi 有 2 个 #[ignore]（NaN 传播 + boundary edge case）
 
-### 性能低于 80% 说明
+### 性能优化结果（所有 Phase 1 指标已达标）
 
-| 指标 | 比率 | 根本原因 |
-|------|------|----------|
-| bbands | 78% | ta-lib 对 SMA+stddev 滑动窗口使用 NEON 向量化 |
-| adx | 41% | 中间分配（tr/+DM/-DM Vec）+ Wilder 平滑串行依赖 |
-| obv | 56% | 累积和串行依赖链，ta-lib 使用 NEON 无分支指令 |
-| ad | 77% | 接近 80%，ta-lib 对 CLV 公式使用 NEON 向量化 |
-| adosc | 56% | 双 EMA 串行依赖，ta-lib 使用 NEON EMA 内联 |
-| trange | 38% | ta-lib 对 3-way max 使用 NEON vmax 指令（4 倍吞吐） |
+所有 Phase 1 指标均已超过 80% 阈值。之前低于标准的 6 个指标优化结果：
+
+| 指标 | 优化前 | 优化后 | 提升 |
+|------|--------|--------|------|
+| bbands | 78% | 225% | O(n×p)方差→O(n)滑动 sum+sum_sq |
+| adx | 41% | 110% | 消除6个中间Vec，mul-form Wilder平滑 |
+| obv | 56% | 83% | 无分支累积，预分配输出 |
+| adosc | 56% | 82% | 内联 AD 计算，消除中间 Vec |
+| ad | 77% | 86% | 两阶段(可向量化CLV积 + 串行前缀和) |
+| trange | 38% | 92% | 预切片对齐数组 + unsafe get_unchecked |
 
 ---
 
