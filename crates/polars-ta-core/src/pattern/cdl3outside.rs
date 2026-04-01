@@ -2,7 +2,7 @@
 //! Engulfing + confirming candle.
 use super::helpers::*;
 
-pub fn cdl3outside(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+pub fn cdl3outside(open: &[f64], _high: &[f64], _low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
     if n < 3 { return out; }

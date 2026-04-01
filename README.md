@@ -21,7 +21,7 @@
 # Cargo.toml
 [dependencies]
 polars-ta = "0.1"
-polars = "0.46"
+polars = "0.53"
 ```
 
 ### Single-output indicator (SMA)

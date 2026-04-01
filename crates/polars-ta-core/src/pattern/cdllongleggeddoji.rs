@@ -1,31 +1,38 @@
 //! CDLLONGLEGGEDDOJI — Long Legged Doji
-//! Doji (open ≈ close) with long upper and lower shadows.
+//! Doji body with at least one long shadow (upper OR lower).
 use super::helpers::*;
 
 pub fn cdllongleggeddoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
-    let period = BODY_DOJI_PERIOD.max(SHADOW_LONG_PERIOD);
-    let lookback = period;
+    // BodyDoji: HighLow, period=10, anchor at i (trailing starts at 0)
+    // ShadowLong: RealBody, period=0 → direct comparison, no rolling needed
+    let body_period = BODY_DOJI_PERIOD;
+    let lookback = body_period;
     if n <= lookback { return out; }
 
-    let mut body_sum: f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
+    let mut body_sum: f64 = (0..body_period).map(|j| hl_range(high[j], low[j])).sum();
+    let mut body_trailing = 0usize;
 
     for i in lookback..n {
-        let avg = body_sum / period as f64;
+        let avg_body = body_sum / body_period as f64;
         let rb = real_body(open[i], close[i]);
         let us = upper_shadow(open[i], high[i], close[i]);
         let ls = lower_shadow(open[i], low[i], close[i]);
 
-        let is_doji = rb <= avg * BODY_DOJI_FACTOR;
-        let long_shadows = us > avg * SHADOW_LONG_FACTOR && ls > avg * SHADOW_LONG_FACTOR;
+        // ShadowLong period=0: compare against current real body * factor
+        let shadow_long_thresh = rb * SHADOW_LONG_FACTOR;
 
-        if is_doji && long_shadows {
-            out[i] = if candle_color(open[i], close[i]) == 1 { 100.0 } else { -100.0 };
+        // Doji body AND (either shadow is long)
+        if rb <= avg_body * BODY_DOJI_FACTOR &&
+           (us > shadow_long_thresh || ls > shadow_long_thresh)
+        {
+            out[i] = 100.0; // always +100
         }
 
         body_sum += hl_range(high[i], low[i]);
-        body_sum -= hl_range(high[i-period], low[i-period]);
+        body_sum -= hl_range(high[body_trailing], low[body_trailing]);
+        body_trailing += 1;
     }
     out
 }

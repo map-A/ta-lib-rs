@@ -24,7 +24,7 @@
 ```toml
 [dependencies]
 polars-ta = "0.1"
-polars = "0.46"
+polars = "0.53"
 ```
 
 ### 单输出指标（SMA）

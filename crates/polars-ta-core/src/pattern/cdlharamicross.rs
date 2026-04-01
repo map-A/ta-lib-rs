@@ -1,45 +1,57 @@
 //! CDLHARAMICROSS — Harami Cross Pattern
+//!
 //! Large candle followed by a doji contained within it.
+//!
+//! ta-lib candle settings:
+//! - BodyLong: RealBody, period=10, factor=1.0 — anchor at i-1
+//! - BodyDoji: HighLow,  period=10, factor=0.1 — anchor at i
 use super::helpers::*;
 
 pub fn cdlharamicross(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
-    let period = BODY_LONG_PERIOD.max(BODY_DOJI_PERIOD);
-    let lookback = period + 1;
+    let lookback = BODY_LONG_PERIOD.max(BODY_DOJI_PERIOD) + 1;
     if n <= lookback { return out; }
 
-    let mut body_sum_long: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
-    let mut hl_sum_doji:   f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
+    // BodyLong anchor i-1: TrailingIdx = lookback-1-BODY_LONG_PERIOD = 0
+    // init while i < lookback-1 → bars [0..lookback-2] = [0..9]
+    let mut body_long_sum: f64 = (0..BODY_LONG_PERIOD).map(|j| real_body(open[j], close[j])).sum();
+    let mut long_trail = 0usize;
+
+    // BodyDoji anchor i: TrailingIdx = lookback-BODY_DOJI_PERIOD = 1
+    // init while i < lookback → bars [1..10]
+    let mut hl_doji_sum: f64 = (1..=BODY_DOJI_PERIOD).map(|j| hl_range(high[j], low[j])).sum();
+    let mut doji_trail = 1usize;
 
     for i in lookback..n {
-        let avg_long = body_sum_long / period as f64;
-        let avg_hl   = hl_sum_doji   / period as f64;
-        let rb0 = real_body(open[i-1], close[i-1]);
-        let rb1 = real_body(open[i], close[i]);
+        let avg_long = body_long_sum / BODY_LONG_PERIOD as f64;
+        let avg_doji = hl_doji_sum   / BODY_DOJI_PERIOD as f64;
+        let rb_prev = real_body(open[i-1], close[i-1]);
+        let rb_curr = real_body(open[i],   close[i]);
 
-        let o0 = open[i-1]; let c0 = close[i-1];
-        let o1 = open[i];   let c1 = close[i];
+        let hi_prev = open[i-1].max(close[i-1]);
+        let lo_prev = open[i-1].min(close[i-1]);
+        let hi_curr = open[i].max(close[i]);
+        let lo_curr = open[i].min(close[i]);
 
-        let contained = o1.max(c1) < o0.max(c0) && o1.min(c1) > o0.min(c0);
+        if rb_prev > avg_long * BODY_LONG_FACTOR &&
+           rb_curr <= avg_doji * BODY_DOJI_FACTOR
+        {
+            if hi_curr < hi_prev && lo_curr > lo_prev {
+                // strict containment → ±100
+                out[i] = -(candle_color(open[i-1], close[i-1]) as f64) * 100.0;
+            } else if hi_curr <= hi_prev && lo_curr >= lo_prev {
+                // partial containment (one end may touch) → ±80
+                out[i] = -(candle_color(open[i-1], close[i-1]) as f64) * 80.0;
+            }
+        }
 
-        let bull = candle_color(o0, c0) == -1 &&
-            rb0 > avg_long * BODY_LONG_FACTOR &&
-            rb1 <= avg_hl * BODY_DOJI_FACTOR &&
-            contained;
-
-        let bear = candle_color(o0, c0) == 1 &&
-            rb0 > avg_long * BODY_LONG_FACTOR &&
-            rb1 <= avg_hl * BODY_DOJI_FACTOR &&
-            contained;
-
-        if bull { out[i] = 100.0; }
-        if bear { out[i] = -100.0; }
-
-        body_sum_long += real_body(open[i-1], close[i-1]);
-        body_sum_long -= real_body(open[i-1-period], close[i-1-period]);
-        hl_sum_doji   += hl_range(high[i], low[i]);
-        hl_sum_doji   -= hl_range(high[i-period], low[i-period]);
+        // Update: BodyLong anchor i-1 → add rb(i-1), remove trailing
+        body_long_sum += real_body(open[i-1], close[i-1]) - real_body(open[long_trail], close[long_trail]);
+        long_trail += 1;
+        // Update: BodyDoji anchor i → add hl(i), remove trailing
+        hl_doji_sum += hl_range(high[i], low[i]) - hl_range(high[doji_trail], low[doji_trail]);
+        doji_trail += 1;
     }
     out
 }

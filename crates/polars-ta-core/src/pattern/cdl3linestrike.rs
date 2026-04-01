@@ -2,7 +2,7 @@
 //! Three candles in one direction, 4th reverses and closes beyond first.
 use super::helpers::*;
 
-pub fn cdl3linestrike(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+pub fn cdl3linestrike(open: &[f64], _high: &[f64], _low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
     let period = BODY_SHORT_PERIOD;
@@ -12,7 +12,7 @@ pub fn cdl3linestrike(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
 
     for i in lookback..n {
-        let avg = body_sum / period as f64;
+        let _avg = body_sum / period as f64;
         let c3 = candle_color(open[i-3], close[i-3]);
         let c2 = candle_color(open[i-2], close[i-2]);
         let c1 = candle_color(open[i-1], close[i-1]);

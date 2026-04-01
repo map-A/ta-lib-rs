@@ -1,61 +1,41 @@
 //! CDLHIKKAKE — Hikkake Pattern
-//! Inside bar followed by a failed breakout. Returns 100/200 (not just 100).
-use super::helpers::*;
+//!
+//! Inside bar (bar[i-1] within bar[i-2]) followed by a failed breakout bar[i].
+//! Returns ±100 for the setup bar, ±200 for confirmation within 3 bars.
+//! New hikkake at same bar overwrites pending confirmation.
 
-pub fn cdlhikkake(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
-    let n = open.len();
+pub fn cdlhikkake(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+    let n = high.len();
     let mut out = vec![0.0f64; n];
-    if n < 5 { return out; }
+    if n < 3 { return out; }
 
-    // Pass 1: find inside bars and mark tentative signals
-    // Pass 2: confirm signals up to 3 bars later
+    // ta-lib lookback = 1+1 = 2 (needs i-2, i-1, i)
+    // patternResult and patternIdx track the most recent hikkake setup
+    let mut pattern_result: i32 = 0; // ±100
+    let mut pattern_idx: usize = 0;  // breakout bar index
 
-    // State: track when we had a bullish or bearish hikkake setup
-    let mut bull_hikkake: Option<usize> = None;
-    let mut bear_hikkake: Option<usize> = None;
-
-    for i in 1..n {
-        // Clear expired setups (more than 3 candles ago)
-        if let Some(b) = bull_hikkake {
-            if i > b + 3 { bull_hikkake = None; }
-        }
-        if let Some(b) = bear_hikkake {
-            if i > b + 3 { bear_hikkake = None; }
-        }
-
-        // Check if current bar confirms a prior hikkake setup
-        if let Some(b) = bull_hikkake {
-            if close[i] > high[b] && i <= b + 3 {
-                // Bullish confirmation: close above the inside bar's high
-                // ta-lib returns 100 for 1-bar confirmation, 200 for 2+ bars
-                let dist = i - b;
-                out[i] = if dist == 1 { 100.0 } else { 200.0 };
-                bull_hikkake = None;
-            }
-        }
-        if let Some(b) = bear_hikkake {
-            if close[i] < low[b] && i <= b + 3 {
-                let dist = i - b;
-                out[i] = if dist == 1 { -100.0 } else { -200.0 };
-                bear_hikkake = None;
-            }
-        }
-
-        // Check if this bar is an inside bar (both high and low within prev bar)
-        if i >= 2 && out[i] == 0.0 {
-            let prev = i - 1;
-            let pprev = i - 2;
-            // Inside bar: bar[i-1] is inside bar[i-2]
-            if high[prev] < high[pprev] && low[prev] > low[pprev] {
-                // Now look at current bar: is it a failed breakout?
-                // Bullish hikkake: bar[i] breaks below the inside bar then reverses
-                if high[i] < high[prev] && low[i] < low[prev] {
-                    // Bearish setup: broke lower (potential bullish hikkake signal)
-                    bull_hikkake = Some(i);
-                } else if low[i] > low[prev] && high[i] > high[prev] {
-                    // Bullish setup: broke higher (potential bearish hikkake signal)  
-                    bear_hikkake = Some(i);
-                }
+    for i in 2..n {
+        // Check for NEW hikkake first (overwrites pending confirmation)
+        if high[i-1] < high[i-2] && low[i-1] > low[i-2] // inside bar: bar[i-1] within bar[i-2]
+            && (
+                (high[i] < high[i-1] && low[i] < low[i-1]) ||   // bullish breakout
+                (high[i] > high[i-1] && low[i] > low[i-1])       // bearish breakout
+            )
+        {
+            pattern_result = if high[i] < high[i-1] { 100 } else { -100 };
+            pattern_idx = i;
+            out[i] = pattern_result as f64;
+        } else if i <= pattern_idx + 3 && pattern_result != 0 {
+            // Confirmation within 3 bars: compare close against inside bar (pattern_idx - 1)
+            let inside_high = high[pattern_idx - 1];
+            let inside_low  = low[pattern_idx - 1];
+            if (pattern_result > 0 && close[i] > inside_high) ||
+               (pattern_result < 0 && close[i] < inside_low)
+            {
+                let sign = if pattern_result > 0 { 1 } else { -1 };
+                out[i] = (pattern_result + 100 * sign) as f64; // ±200
+                pattern_idx = 0;
+                pattern_result = 0;
             }
         }
     }

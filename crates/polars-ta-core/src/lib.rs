@@ -34,9 +34,11 @@
 //! - [`math_transform`] — ACOS, ASIN, ATAN, CEIL, COS, COSH, EXP, FLOOR, LN, LOG10, SIN, SINH, SQRT, TAN, TANH
 //! - [`math_ops`] — ADD, DIV, MULT, SUB, MAX, MIN, SUM, MAXINDEX, MININDEX, MINMAX, MINMAXINDEX
 
+pub mod hilbert;
 pub mod math_ops;
 pub mod math_transform;
 pub mod oscillator;
+pub mod pattern;
 pub mod price_transform;
 pub mod statistic;
 pub mod trend;

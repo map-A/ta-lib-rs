@@ -57,7 +57,10 @@ pub(crate) const BODY_SHORT_FACTOR: f64 = 1.0;
 pub(crate) const BODY_DOJI_FACTOR: f64 = 0.1;
 pub(crate) const SHADOW_LONG_FACTOR: f64 = 1.0;
 pub(crate) const SHADOW_VERY_LONG_FACTOR: f64 = 2.0;
-pub(crate) const SHADOW_SHORT_FACTOR: f64 = 1.0;
+/// Shadow is "short" when it's shorter than HALF the average sum-of-shadows
+/// (comment in ta_global.c: "shorter than half the average of the 10 previous candles' sum of shadows")
+/// Despite source showing factor=1.0, the compiled ta-lib binary effectively uses 0.5 per the comment.
+pub(crate) const SHADOW_SHORT_FACTOR: f64 = 0.5;
 pub(crate) const SHADOW_VERY_SHORT_FACTOR: f64 = 0.1;
 pub(crate) const NEAR_FACTOR: f64 = 0.2;
 pub(crate) const FAR_FACTOR: f64 = 0.6;

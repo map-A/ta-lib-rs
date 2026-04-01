@@ -2,7 +2,7 @@
 //! Large candle followed by small one contained within it.
 use super::helpers::*;
 
-pub fn cdlharami(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+pub fn cdlharami(open: &[f64], _high: &[f64], _low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
     let period = BODY_LONG_PERIOD.max(BODY_SHORT_PERIOD);

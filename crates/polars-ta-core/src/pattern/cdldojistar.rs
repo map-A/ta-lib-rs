@@ -9,7 +9,7 @@ pub fn cdldojistar(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
     let lookback = period + 1;
     if n <= lookback { return out; }
 
-    let mut hl_sum:   f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
+    let mut hl_sum:   f64 = (1..=period).map(|j| hl_range(high[j], low[j])).sum();
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
 
     for i in lookback..n {

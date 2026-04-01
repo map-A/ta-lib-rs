@@ -678,7 +678,7 @@ Golden Test 失败
 
 | 依赖 | 最低版本 | 说明 |
 |---|---|---|
-| polars | 0.46 | Series API 稳定基线 |
+| polars | 0.53 | Series API 稳定基线 |
 | ta-lib（Golden 生成） | 0.4.28 | Python binding，仅用于生成 Golden 文件 |
 | Rust toolchain | 1.75 stable | 支持 SIMD 稳定特性 |
 | pyo3 | 0.22 | Polars Plugin 依赖 |

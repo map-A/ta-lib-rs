@@ -55,7 +55,7 @@ Add to `Cargo.toml`:
 [dependencies]
 # Only needed if you want Polars Series wrappers (Step 3)
 polars-ta = "0.1"
-polars = { version = "0.46", features = ["lazy"] }
+polars = { version = "0.53", features = ["lazy"] }
 ```
 
 Create `src/vwap.rs`:

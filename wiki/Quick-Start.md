@@ -7,7 +7,7 @@ Add `polars-ta` to your `Cargo.toml`:
 ```toml
 [dependencies]
 polars-ta = "0.1"
-polars = "0.46"
+polars = "0.53"
 ```
 
 ## Single-Output Indicator

@@ -2,7 +2,7 @@
 //! Two-candle pattern: second candle's body engulfs the first's.
 use super::helpers::*;
 
-pub fn cdlengulfing(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+pub fn cdlengulfing(open: &[f64], _high: &[f64], _low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
     if n < 2 { return out; }
