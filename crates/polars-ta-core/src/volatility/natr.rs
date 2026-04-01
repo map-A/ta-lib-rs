@@ -57,12 +57,24 @@ pub fn natr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64>
         return vec![];
     }
 
-    // ATR 的第一个输出对应 close[period]
-    atr_vals
-        .iter()
-        .enumerate()
-        .map(|(i, &a)| a / close[period + i] * 100.0)
-        .collect()
+    let out_len = atr_vals.len();
+    let mut out = Vec::with_capacity(out_len);
+    // Safety: atr_vals has out_len elements. close has n elements and n > period (checked above),
+    // so close[period..n] has n-period = out_len elements. Both src pointers advance out_len times.
+    // dst advances out_len times within the allocation.
+    unsafe {
+        out.set_len(out_len);
+        let mut atr_ptr = atr_vals.as_ptr();
+        let mut close_ptr = close.as_ptr().add(period);
+        let mut dst = out.as_mut_ptr();
+        for _ in 0..out_len {
+            *dst = *atr_ptr / *close_ptr * 100.0;
+            atr_ptr = atr_ptr.add(1);
+            close_ptr = close_ptr.add(1);
+            dst = dst.add(1);
+        }
+    }
+    out
 }
 
 #[cfg(test)]

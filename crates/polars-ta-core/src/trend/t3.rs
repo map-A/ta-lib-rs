@@ -96,17 +96,31 @@ pub fn t3(data: &[f64], period: usize, vf: f64) -> Vec<f64> {
             }
         }
     }
-    out.push(c1 * e[5] + c2 * e[4] + c3 * e[3] + c4 * e[2]);
 
-    // 稳态热路径：无分支的 6 级串联 EMA 更新
-    for &x in &data[lookback + 1..] {
-        e[0] = x    * k + e[0] * km1;
-        e[1] = e[0] * k + e[1] * km1;
-        e[2] = e[1] * k + e[2] * km1;
-        e[3] = e[2] * k + e[3] * km1;
-        e[4] = e[3] * k + e[4] * km1;
-        e[5] = e[4] * k + e[5] * km1;
-        out.push(c1 * e[5] + c2 * e[4] + c3 * e[3] + c4 * e[2]);
+    // 稳态热路径：raw pointer iteration，无分支 6 级串联 EMA
+    // Safety: out has out_len elements; first element is the warmup result, then
+    // data[lookback+1..n] provides out_len-1 more values. src advances exactly
+    // n - (lookback+1) = out_len-1 times, dst advances out_len times total.
+    unsafe {
+        out.set_len(out_len);
+        let dst_base = out.as_mut_ptr();
+        *dst_base = c1 * e[5] + c2 * e[4] + c3 * e[3] + c4 * e[2];
+
+        let mut src = data.as_ptr().add(lookback + 1);
+        let mut dst = dst_base.add(1);
+        let end = data.as_ptr().add(n);
+        while src < end {
+            let x = *src;
+            e[0] = x    * k + e[0] * km1;
+            e[1] = e[0] * k + e[1] * km1;
+            e[2] = e[1] * k + e[2] * km1;
+            e[3] = e[2] * k + e[3] * km1;
+            e[4] = e[3] * k + e[4] * km1;
+            e[5] = e[4] * k + e[5] * km1;
+            *dst = c1 * e[5] + c2 * e[4] + c3 * e[3] + c4 * e[2];
+            src = src.add(1);
+            dst = dst.add(1);
+        }
     }
 
     out

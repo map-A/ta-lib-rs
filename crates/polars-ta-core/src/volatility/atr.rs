@@ -65,14 +65,31 @@ pub fn atr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
 
     // 种子：前 period 个 TR 的算术平均
     let seed: f64 = tr[..period].iter().sum::<f64>() / period as f64;
-    out.push(seed);
 
-    // Wilder 平滑
+    // 预计算 Wilder 平滑系数，避免循环内重复运算
     let p = period as f64;
-    let mut prev = seed;
-    for i in period..tr.len() {
-        prev = (prev * (p - 1.0) + tr[i]) / p;
-        out.push(prev);
+    let k_wilder = (p - 1.0) / p; // = 1 - 1/period
+    let inv_p = 1.0 / p;
+
+    // Safety: tr has tr.len() >= period elements (checked above).
+    // tr[period..] has tr.len()-period = out_len-1 elements; src advances exactly that many times.
+    // dst starts at out[0] and advances out_len times within the allocation.
+    unsafe {
+        out.set_len(out_len);
+        let dst_base = out.as_mut_ptr();
+        *dst_base = seed;
+
+        let mut prev = seed;
+        let mut src = tr.as_ptr().add(period);
+        let mut dst = dst_base.add(1);
+        let end = tr.as_ptr().add(tr.len());
+        while src < end {
+            let cur = prev * k_wilder + *src * inv_p;
+            *dst = cur;
+            prev = cur;
+            src = src.add(1);
+            dst = dst.add(1);
+        }
     }
 
     out

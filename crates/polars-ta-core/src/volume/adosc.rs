@@ -73,8 +73,10 @@ pub fn adosc(
         return vec![];
     }
 
-    let alpha_fast = 2.0 / (fast_period as f64 + 1.0);
-    let alpha_slow = 2.0 / (slow_period as f64 + 1.0);
+    let kf = 2.0 / (fast_period as f64 + 1.0);
+    let kf1 = 1.0 - kf;
+    let ks = 2.0 / (slow_period as f64 + 1.0);
+    let ks1 = 1.0 - ks;
 
     // 内联 AD 计算，避免中间 Vec 分配和第二次数据遍历
     let range0 = high[0] - low[0];
@@ -85,17 +87,47 @@ pub fn adosc(
     let mut slow_prev = ad_acc;
     let mut out = Vec::with_capacity(out_len);
 
-    for i in 1..n {
+    // 预热阶段（i = 1..slow_period-1）：更新两条 EMA，不产生输出
+    // 消除热路径中的分支判断
+    let warmup_end = slow_period.saturating_sub(1);
+    for i in 1..warmup_end {
         let h = high[i];
         let l = low[i];
         let range = h - l;
         let clv = if range == 0.0 { 0.0 } else { (2.0 * close[i] - h - l) / range };
         ad_acc += clv * volume[i];
+        fast_prev = ad_acc * kf + fast_prev * kf1;
+        slow_prev = ad_acc * ks + slow_prev * ks1;
+    }
 
-        fast_prev += alpha_fast * (ad_acc - fast_prev);
-        slow_prev += alpha_slow * (ad_acc - slow_prev);
-        if i >= slow_period - 1 {
-            out.push(fast_prev - slow_prev);
+    // 热路径（i = max(1, slow_period-1)..n）：raw pointer reads，消除 4 路数组边界检查
+    // Safety: high, low, close, volume all have n elements. hot_start <= n (slow_period <= n).
+    // src pointers each advance n-hot_start times within their respective allocations.
+    // dst advances count times within out's allocation.
+    let hot_start = warmup_end.max(1);
+    let count = n - hot_start;
+    unsafe {
+        out.set_len(count);
+        let mut h_ptr = high.as_ptr().add(hot_start);
+        let mut l_ptr = low.as_ptr().add(hot_start);
+        let mut c_ptr = close.as_ptr().add(hot_start);
+        let mut v_ptr = volume.as_ptr().add(hot_start);
+        let mut dst = out.as_mut_ptr();
+        let end = high.as_ptr().add(n);
+        while h_ptr < end {
+            let h = *h_ptr;
+            let l = *l_ptr;
+            let range = h - l;
+            let clv = if range == 0.0 { 0.0 } else { (2.0 * *c_ptr - h - l) / range };
+            ad_acc += clv * *v_ptr;
+            fast_prev = ad_acc * kf + fast_prev * kf1;
+            slow_prev = ad_acc * ks + slow_prev * ks1;
+            *dst = fast_prev - slow_prev;
+            h_ptr = h_ptr.add(1);
+            l_ptr = l_ptr.add(1);
+            c_ptr = c_ptr.add(1);
+            v_ptr = v_ptr.add(1);
+            dst = dst.add(1);
         }
     }
 

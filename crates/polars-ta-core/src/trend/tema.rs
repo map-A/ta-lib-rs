@@ -68,12 +68,25 @@ pub fn tema(data: &[f64], period: usize) -> Vec<f64> {
     debug_assert_eq!(ema1_aligned.len(), ema3.len());
     debug_assert_eq!(ema2_aligned.len(), ema3.len());
 
-    ema1_aligned
-        .iter()
-        .zip(ema2_aligned.iter())
-        .zip(ema3.iter())
-        .map(|((&e1, &e2), &e3)| 3.0 * e1 - 3.0 * e2 + e3)
-        .collect()
+    let out_len = ema3.len();
+    let mut out = Vec::with_capacity(out_len);
+    // Safety: all three aligned slices have out_len elements (asserted above).
+    // dst advances exactly out_len times within the allocation.
+    unsafe {
+        out.set_len(out_len);
+        let mut p1 = ema1_aligned.as_ptr();
+        let mut p2 = ema2_aligned.as_ptr();
+        let mut p3 = ema3.as_ptr();
+        let mut dst = out.as_mut_ptr();
+        for _ in 0..out_len {
+            *dst = 3.0 * *p1 - 3.0 * *p2 + *p3;
+            p1 = p1.add(1);
+            p2 = p2.add(1);
+            p3 = p3.add(1);
+            dst = dst.add(1);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
