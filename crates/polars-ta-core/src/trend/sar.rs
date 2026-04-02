@@ -69,10 +69,22 @@ pub fn sar(high: &[f64], low: &[f64], acceleration: f64, maximum: f64) -> Vec<f6
 
     let (mut ep, mut sar) = if is_long {
         // 上升趋势：EP = 第二根最高价，SAR = 第一根最低价
-        (high[1], low[0])
+        // 若 EP 为 NaN（high[1] 缺失），退回到下降趋势
+        if high[1].is_nan() {
+            is_long = false;
+            (low[1], high[0])
+        } else {
+            (high[1], low[0])
+        }
     } else {
         // 下降趋势：EP = 第二根最低价，SAR = 第一根最高价
-        (low[1], high[0])
+        // 若 EP 为 NaN（low[1] 缺失），退回到上升趋势
+        if low[1].is_nan() {
+            is_long = true;
+            (high[1], low[0])
+        } else {
+            (low[1], high[0])
+        }
     };
 
     let mut acc = acceleration;
@@ -84,7 +96,9 @@ pub fn sar(high: &[f64], low: &[f64], acceleration: f64, maximum: f64) -> Vec<f6
         let new_sar = if is_long {
             // 先截断 SAR（不能高于前两根最低价），再检查翻转（与 ta-lib 一致）
             let mut clamped = raw_sar.min(low[i - 1]);
-            if i >= 3 { clamped = clamped.min(low[i - 2]); }
+            if i >= 3 {
+                clamped = clamped.min(low[i - 2]);
+            }
 
             if low[i] <= clamped {
                 // 翻转到空头
@@ -93,7 +107,9 @@ pub fn sar(high: &[f64], low: &[f64], acceleration: f64, maximum: f64) -> Vec<f6
                 ep = low[i];
                 acc = acceleration;
                 let mut s = old_ep.max(high[i - 1]);
-                if i >= 3 { s = s.max(high[i - 2]); }
+                if i >= 3 {
+                    s = s.max(high[i - 2]);
+                }
                 s
             } else {
                 // 不翻转：再更新 EP/加速系数（用于下一周期）
@@ -106,7 +122,9 @@ pub fn sar(high: &[f64], low: &[f64], acceleration: f64, maximum: f64) -> Vec<f6
         } else {
             // 先截断 SAR（不能低于前两根最高价），再检查翻转（与 ta-lib 一致）
             let mut clamped = raw_sar.max(high[i - 1]);
-            if i >= 3 { clamped = clamped.max(high[i - 2]); }
+            if i >= 3 {
+                clamped = clamped.max(high[i - 2]);
+            }
 
             if high[i] >= clamped {
                 // 翻转到多头
@@ -115,7 +133,9 @@ pub fn sar(high: &[f64], low: &[f64], acceleration: f64, maximum: f64) -> Vec<f6
                 ep = high[i];
                 acc = acceleration;
                 let mut s = old_ep.min(low[i - 1]);
-                if i >= 3 { s = s.min(low[i - 2]); }
+                if i >= 3 {
+                    s = s.min(low[i - 2]);
+                }
                 s
             } else {
                 // 不翻转：再更新 EP/加速系数（用于下一周期）
@@ -191,7 +211,9 @@ mod tests {
     #[test]
     fn sar_all_values_finite() {
         // 无 panic，所有输出有限
-        let high: Vec<f64> = (0..50).map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1).collect();
+        let high: Vec<f64> = (0..50)
+            .map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1)
+            .collect();
         let low: Vec<f64> = high.iter().map(|&h| h - 2.0).collect();
         let result = sar(&high, &low, 0.02, 0.20);
         assert_eq!(result.len(), 49);

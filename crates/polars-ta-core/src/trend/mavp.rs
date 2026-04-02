@@ -31,12 +31,7 @@
 /// Moving Average with Variable Period (SMA variant).
 ///
 /// 详见 [模块文档](self)。
-pub fn mavp(
-    data: &[f64],
-    periods: &[f64],
-    min_period: usize,
-    max_period: usize,
-) -> Vec<f64> {
+pub fn mavp(data: &[f64], periods: &[f64], min_period: usize, max_period: usize) -> Vec<f64> {
     if max_period == 0 || min_period == 0 || min_period > max_period {
         return vec![];
     }
@@ -53,18 +48,30 @@ pub fn mavp(
     let out_len = n - lookback;
     let mut out = Vec::with_capacity(out_len);
 
+    // 使用增量运行总和（ta-lib 行为）：sum += new - old
+    // 一旦 NaN 进入求和，结果永久为 NaN（永久污染，不恢复）
+    let mut sk_sum = 0.0f64;
+    let mut prev_p = 0usize;
+
     for i in 0..out_len {
         let idx = lookback + i;
         let raw_p = periods[idx];
         if raw_p.is_nan() {
             out.push(f64::NAN);
+            prev_p = 0;
             continue;
         }
-        // ta-lib rounds to nearest integer (ties go away from zero)
         let p = (raw_p.round() as usize).clamp(min_period, max_period);
         let start = idx + 1 - p;
-        let sum: f64 = data[start..=idx].iter().sum();
-        out.push(sum / p as f64);
+        if p != prev_p {
+            // 周期变化时重新计算（sum 自然传播 NaN）
+            sk_sum = data[start..=idx].iter().sum();
+        } else {
+            // 周期不变：增量更新（NaN 永久污染）
+            sk_sum += data[idx] - data[start - 1];
+        }
+        prev_p = p;
+        out.push(sk_sum / p as f64);
     }
 
     out

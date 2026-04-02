@@ -11,9 +11,13 @@ pub fn cdlhighwave(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
     let n = open.len();
     let mut out = vec![0.0f64; n];
     let lookback = BODY_SHORT_PERIOD; // max(10, 0) = 10
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
-    let mut body_sum: f64 = (0..BODY_SHORT_PERIOD).map(|j| real_body(open[j], close[j])).sum();
+    let mut body_sum: f64 = (0..BODY_SHORT_PERIOD)
+        .map(|j| real_body(open[j], close[j]))
+        .sum();
     let mut body_trail = 0usize;
 
     for i in lookback..n {
@@ -26,7 +30,11 @@ pub fn cdlhighwave(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
            us > rb * SHADOW_VERY_LONG_FACTOR &&   // period=0: vs current body
            ls > rb * SHADOW_VERY_LONG_FACTOR
         {
-            out[i] = if candle_color(open[i], close[i]) == 1 { 100.0 } else { -100.0 };
+            out[i] = if candle_color(open[i], close[i]) == 1 {
+                100.0
+            } else {
+                -100.0
+            };
         }
 
         body_sum += real_body(open[i], close[i]) - real_body(open[body_trail], close[body_trail]);

@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn obv_basic() {
-        let close  = vec![10.0, 11.0, 10.5, 11.0];
+        let close = vec![10.0, 11.0, 10.5, 11.0];
         let volume = vec![100.0, 200.0, 150.0, 300.0];
         let result = obv(&close, &volume);
         assert_eq!(result.len(), 4);
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn obv_flat_close() {
         // 价格不变 → OBV 不变（始终等于 volume[0]）
-        let close  = vec![10.0, 10.0, 10.0];
+        let close = vec![10.0, 10.0, 10.0];
         let volume = vec![100.0, 200.0, 300.0];
         let result = obv(&close, &volume);
         assert_eq!(result.len(), 3);
@@ -115,14 +115,14 @@ mod tests {
 
     #[test]
     fn obv_length_mismatch() {
-        let close  = vec![1.0, 2.0];
+        let close = vec![1.0, 2.0];
         let volume = vec![100.0];
         assert!(obv(&close, &volume).is_empty());
     }
 
     #[test]
     fn obv_single_element() {
-        let close  = vec![10.0];
+        let close = vec![10.0];
         let volume = vec![500.0];
         let result = obv(&close, &volume);
         assert_eq!(result.len(), 1);
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn obv_output_length_equals_input() {
         let n = 50;
-        let close: Vec<f64>  = (0..n).map(|i| i as f64).collect();
+        let close: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let volume: Vec<f64> = vec![1.0; n];
         let result = obv(&close, &volume);
         assert_eq!(result.len(), n);
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn obv_strictly_up() {
-        let close  = vec![1.0, 2.0, 3.0, 4.0];
+        let close = vec![1.0, 2.0, 3.0, 4.0];
         let volume = vec![100.0, 100.0, 100.0, 100.0];
         let result = obv(&close, &volume);
         // 100, 200, 300, 400
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn obv_strictly_down() {
-        let close  = vec![4.0, 3.0, 2.0, 1.0];
+        let close = vec![4.0, 3.0, 2.0, 1.0];
         let volume = vec![100.0, 100.0, 100.0, 100.0];
         let result = obv(&close, &volume);
         // 100, 0, -100, -200

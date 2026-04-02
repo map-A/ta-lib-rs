@@ -9,7 +9,8 @@ pub fn mom(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period;
-    data[period..].iter()
+    data[period..]
+        .iter()
         .zip(data[..out_len].iter())
         .map(|(&a, &b)| a - b)
         .collect()

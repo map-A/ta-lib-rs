@@ -98,13 +98,28 @@ pub fn ultosc(
 
     for j in 0..raw {
         // 滑入新值
-        bs1 += bp[j]; ts1 += tr[j];
-        bs2 += bp[j]; ts2 += tr[j];
-        bs3 += bp[j]; ts3 += tr[j];
+        bs1 += bp[j];
+        ts1 += tr[j];
+        bs2 += bp[j];
+        ts2 += tr[j];
+        bs3 += bp[j];
+        ts3 += tr[j];
         // 滑出过期值（窗口超出 period 大小时移除最老元素）
-        if j >= period1 { let k = j - period1; bs1 -= bp[k]; ts1 -= tr[k]; }
-        if j >= period2 { let k = j - period2; bs2 -= bp[k]; ts2 -= tr[k]; }
-        if j >= period3 { let k = j - period3; bs3 -= bp[k]; ts3 -= tr[k]; }
+        if j >= period1 {
+            let k = j - period1;
+            bs1 -= bp[k];
+            ts1 -= tr[k];
+        }
+        if j >= period2 {
+            let k = j - period2;
+            bs2 -= bp[k];
+            ts2 -= tr[k];
+        }
+        if j >= period3 {
+            let k = j - period3;
+            bs3 -= bp[k];
+            ts3 -= tr[k];
+        }
 
         // 当三个窗口均已填满（j >= max_period-1）时开始输出
         if j >= max_period - 1 {
@@ -132,8 +147,8 @@ mod tests {
     #[test]
     fn ultosc_output_length() {
         let n = 50_usize;
-        let high:  Vec<f64> = (0..n).map(|i| i as f64 + 1.0).collect();
-        let low:   Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let high: Vec<f64> = (0..n).map(|i| i as f64 + 1.0).collect();
+        let low: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let close: Vec<f64> = (0..n).map(|i| i as f64 + 0.5).collect();
         let result = ultosc(&high, &low, &close, 7, 14, 28);
         // lookback = max(7,14,28) = 28, so output len = 50 - 28 = 22
@@ -161,9 +176,15 @@ mod tests {
     #[test]
     fn ultosc_range() {
         let n = 60_usize;
-        let high:  Vec<f64> = (0..n).map(|i| (i as f64 * 0.5).sin() * 10.0 + 51.0).collect();
-        let low:   Vec<f64> = (0..n).map(|i| (i as f64 * 0.5).sin() * 10.0 + 49.0).collect();
-        let close: Vec<f64> = (0..n).map(|i| (i as f64 * 0.5).sin() * 10.0 + 50.0).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.5).sin() * 10.0 + 51.0)
+            .collect();
+        let low: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.5).sin() * 10.0 + 49.0)
+            .collect();
+        let close: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.5).sin() * 10.0 + 50.0)
+            .collect();
         let result = ultosc(&high, &low, &close, 7, 14, 28);
         for v in &result {
             assert!(v.is_finite(), "UO not finite: {v}");
@@ -175,8 +196,8 @@ mod tests {
         // When all periods are equal, avg1 == avg2 == avg3
         // → UO = 100 * (4+2+1) * avg / 7 = 100 * avg
         let n = 30_usize;
-        let high:  Vec<f64> = (0..n).map(|i| i as f64 + 1.0).collect();
-        let low:   Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let high: Vec<f64> = (0..n).map(|i| i as f64 + 1.0).collect();
+        let low: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let close: Vec<f64> = (0..n).map(|i| i as f64 + 0.5).collect();
         let res = ultosc(&high, &low, &close, 5, 5, 5);
         // lookback = 5, out_len = 25

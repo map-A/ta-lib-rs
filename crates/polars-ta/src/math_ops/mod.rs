@@ -51,31 +51,46 @@ pub fn sub_series(real0: &Series, real1: &Series) -> PolarsResult<Series> {
 /// Rolling maximum over `period` bars. Output length = `n - period + 1`.
 pub fn max_series(s: &Series, period: usize) -> PolarsResult<Series> {
     let data = series_to_f64(s)?;
-    Ok(vec_to_series(s.name().clone(), math_ops::max(&data, period)))
+    Ok(vec_to_series(
+        s.name().clone(),
+        math_ops::max(&data, period),
+    ))
 }
 
 /// Rolling minimum over `period` bars. Output length = `n - period + 1`.
 pub fn min_series(s: &Series, period: usize) -> PolarsResult<Series> {
     let data = series_to_f64(s)?;
-    Ok(vec_to_series(s.name().clone(), math_ops::min(&data, period)))
+    Ok(vec_to_series(
+        s.name().clone(),
+        math_ops::min(&data, period),
+    ))
 }
 
 /// Rolling sum over `period` bars. Output length = `n - period + 1`.
 pub fn sum_series(s: &Series, period: usize) -> PolarsResult<Series> {
     let data = series_to_f64(s)?;
-    Ok(vec_to_series(s.name().clone(), math_ops::sum(&data, period)))
+    Ok(vec_to_series(
+        s.name().clone(),
+        math_ops::sum(&data, period),
+    ))
 }
 
 /// Index of rolling maximum over `period` bars (0-based). Output length = `n - period + 1`.
 pub fn maxindex_series(s: &Series, period: usize) -> PolarsResult<Series> {
     let data = series_to_f64(s)?;
-    Ok(vec_to_series(s.name().clone(), math_ops::maxindex(&data, period)))
+    Ok(vec_to_series(
+        s.name().clone(),
+        math_ops::maxindex(&data, period),
+    ))
 }
 
 /// Index of rolling minimum over `period` bars (0-based). Output length = `n - period + 1`.
 pub fn minindex_series(s: &Series, period: usize) -> PolarsResult<Series> {
     let data = series_to_f64(s)?;
-    Ok(vec_to_series(s.name().clone(), math_ops::minindex(&data, period)))
+    Ok(vec_to_series(
+        s.name().clone(),
+        math_ops::minindex(&data, period),
+    ))
 }
 
 // ── Rolling window — dual output ─────────────────────────────────────────────

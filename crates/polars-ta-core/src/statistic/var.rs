@@ -14,8 +14,8 @@ pub fn var(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
     // 预计算倒数，消除热路径中的除法
     let inv_pf = 1.0 / pf;
     let inv_pf2 = inv_pf * inv_pf;
-    let coeff1 = nbdev2 * inv_pf;      // nbdev^2 / period
-    let coeff2 = nbdev2 * inv_pf2;     // nbdev^2 / period^2
+    let coeff1 = nbdev2 * inv_pf; // nbdev^2 / period
+    let coeff2 = nbdev2 * inv_pf2; // nbdev^2 / period^2
 
     let out_len = n - (period - 1);
     let mut out = vec![0.0_f64; out_len];
@@ -29,16 +29,20 @@ pub fn var(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
     }
 
     // v = sum_sq/period - (sum/period)^2 = sum_sq*inv_pf - sum^2*inv_pf^2
-    let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
-    out[0] = v;
+    let var0 = sum_sq * coeff1 - sum * sum * coeff2;
+    out[0] = if var0.is_nan() {
+        f64::NAN
+    } else {
+        var0.max(0.0)
+    };
 
     for i in 1..out_len {
         let yo = data[i - 1];
         let yn = data[i + period - 1];
         sum += yn - yo;
         sum_sq += yn * yn - yo * yo;
-        let v = (sum_sq * coeff1 - sum * sum * coeff2).max(0.0);
-        out[i] = v;
+        let var = sum_sq * coeff1 - sum * sum * coeff2;
+        out[i] = if var.is_nan() { f64::NAN } else { var.max(0.0) };
     }
 
     out

@@ -11,14 +11,23 @@ pub fn cdlhammer(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<
     let n = open.len();
     let mut out = vec![0.0f64; n];
     // lookback = max(BODY_SHORT_PERIOD=10, ShadowLong_period=0, SHADOW_VERY_SHORT_PERIOD=10, NEAR_PERIOD=5) + 1
-    let lookback = BODY_SHORT_PERIOD.max(SHADOW_VERY_SHORT_PERIOD).max(NEAR_PERIOD) + 1;
-    if n <= lookback { return out; }
+    let lookback = BODY_SHORT_PERIOD
+        .max(SHADOW_VERY_SHORT_PERIOD)
+        .max(NEAR_PERIOD)
+        + 1;
+    if n <= lookback {
+        return out;
+    }
 
     // Rolling sums, all anchored at i-1 (updated with current bar AFTER condition check)
     // Init: body+vshort cover [startIdx-period..startIdx-1] = [1..10]
     // Near init: covers [startIdx-1-NEAR_PERIOD..startIdx-2] = [5..9]
-    let mut body_sum: f64 = (1..=BODY_SHORT_PERIOD).map(|j| real_body(open[j], close[j])).sum();
-    let mut vshort_sum: f64 = (1..=SHADOW_VERY_SHORT_PERIOD).map(|j| hl_range(high[j], low[j])).sum();
+    let mut body_sum: f64 = (1..=BODY_SHORT_PERIOD)
+        .map(|j| real_body(open[j], close[j]))
+        .sum();
+    let mut vshort_sum: f64 = (1..=SHADOW_VERY_SHORT_PERIOD)
+        .map(|j| hl_range(high[j], low[j]))
+        .sum();
     let mut near_sum: f64 = (5..10_usize).map(|j| hl_range(high[j], low[j])).sum();
 
     let mut body_trail = 1usize;
@@ -36,7 +45,8 @@ pub fn cdlhammer(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<
         if rb < avg_body &&                                               // small body
            ls > rb * SHADOW_LONG_FACTOR &&                                // lower shadow > body (period=0)
            us < avg_vshort * SHADOW_VERY_SHORT_FACTOR &&                  // very short upper shadow
-           open[i].min(close[i]) <= low[i-1] + avg_near * NEAR_FACTOR    // body near prior low
+           open[i].min(close[i]) <= low[i-1] + avg_near * NEAR_FACTOR
+        // body near prior low
         {
             out[i] = 100.0;
         }
@@ -46,7 +56,7 @@ pub fn cdlhammer(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<
         body_trail += 1;
         vshort_sum += hl_range(high[i], low[i]) - hl_range(high[vshort_trail], low[vshort_trail]);
         vshort_trail += 1;
-        near_sum += hl_range(high[i-1], low[i-1]) - hl_range(high[near_trail], low[near_trail]);
+        near_sum += hl_range(high[i - 1], low[i - 1]) - hl_range(high[near_trail], low[near_trail]);
         near_trail += 1;
     }
     out

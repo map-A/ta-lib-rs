@@ -50,20 +50,34 @@ pub fn midprice(high: &[f64], low: &[f64], period: usize) -> Vec<f64> {
             min_dq.pop_front();
         }
 
-        while max_dq.back().map(|&j| high[j] <= high[i]).unwrap_or(false) {
-            max_dq.pop_back();
+        // 跳过 NaN，只将有效值加入队列
+        if !high[i].is_nan() {
+            while max_dq.back().map(|&j| high[j] <= high[i]).unwrap_or(false) {
+                max_dq.pop_back();
+            }
+            max_dq.push_back(i);
         }
-        max_dq.push_back(i);
 
-        while min_dq.back().map(|&j| low[j] >= low[i]).unwrap_or(false) {
-            min_dq.pop_back();
+        if !low[i].is_nan() {
+            while min_dq.back().map(|&j| low[j] >= low[i]).unwrap_or(false) {
+                min_dq.pop_back();
+            }
+            min_dq.push_back(i);
         }
-        min_dq.push_back(i);
 
         if i >= lookback {
-            let max_high = high[*max_dq.front().unwrap()];
-            let min_low = low[*min_dq.front().unwrap()];
-            out.push((max_high + min_low) / 2.0);
+            let win_start = i - lookback;
+            if high[win_start].is_nan()
+                || low[win_start].is_nan()
+                || max_dq.is_empty()
+                || min_dq.is_empty()
+            {
+                out.push(f64::NAN);
+            } else {
+                let max_high = high[*max_dq.front().unwrap()];
+                let min_low = low[*min_dq.front().unwrap()];
+                out.push((max_high + min_low) / 2.0);
+            }
         }
     }
 
@@ -93,7 +107,7 @@ mod tests {
     #[test]
     fn midprice_basic() {
         let high = vec![3.0, 5.0, 4.0, 6.0, 5.0];
-        let low  = vec![1.0, 2.0, 1.5, 3.0, 2.5];
+        let low = vec![1.0, 2.0, 1.5, 3.0, 2.5];
         let result = midprice(&high, &low, 3);
         // [0..=2]: max_high=5, min_low=1 → 3.0
         // [1..=3]: max_high=6, min_low=1.5 → 3.75
@@ -107,7 +121,7 @@ mod tests {
     #[test]
     fn midprice_constant_series() {
         let high = vec![101.0f64; 50];
-        let low  = vec![99.0f64; 50];
+        let low = vec![99.0f64; 50];
         let result = midprice(&high, &low, 10);
         for &v in &result {
             assert_close(v, 100.0, 1e-10);
@@ -117,7 +131,7 @@ mod tests {
     #[test]
     fn midprice_period1() {
         let high = vec![3.0, 5.0, 4.0];
-        let low  = vec![1.0, 2.0, 1.5];
+        let low = vec![1.0, 2.0, 1.5];
         let result = midprice(&high, &low, 1);
         assert_eq!(result.len(), 3);
         assert_close(result[0], 2.0, 1e-10);
@@ -128,21 +142,21 @@ mod tests {
     #[test]
     fn midprice_boundary_short() {
         let high = vec![1.0, 2.0, 3.0];
-        let low  = vec![0.5, 1.0, 1.5];
+        let low = vec![0.5, 1.0, 1.5];
         assert!(midprice(&high, &low, 5).is_empty());
     }
 
     #[test]
     fn midprice_mismatched_lengths() {
         let high = vec![1.0, 2.0, 3.0];
-        let low  = vec![0.5, 1.0];
+        let low = vec![0.5, 1.0];
         assert!(midprice(&high, &low, 2).is_empty());
     }
 
     #[test]
     fn midprice_period_zero() {
         let high = vec![1.0, 2.0, 3.0];
-        let low  = vec![0.5, 1.0, 1.5];
+        let low = vec![0.5, 1.0, 1.5];
         assert!(midprice(&high, &low, 0).is_empty());
     }
 

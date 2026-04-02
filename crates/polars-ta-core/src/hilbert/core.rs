@@ -79,13 +79,18 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
     let mut trailing_wma_idx: usize = 0;
     let mut today: usize = 0;
 
-    let c0 = close[today]; today += 1;
+    let c0 = close[today];
+    today += 1;
     let mut pws = c0;
     let mut pw_sum = c0;
-    let c1 = close[today]; today += 1;
-    pws += c1; pw_sum += c1 * 2.0;
-    let c2 = close[today]; today += 1;
-    pws += c2; pw_sum += c2 * 3.0;
+    let c1 = close[today];
+    today += 1;
+    pws += c1;
+    pw_sum += c1 * 2.0;
+    let c2 = close[today];
+    today += 1;
+    pws += c2;
+    pw_sum += c2 * 3.0;
     let mut trailing_wma_val = 0.0_f64;
 
     // Inline WMA step to avoid borrow issues with close
@@ -138,7 +143,7 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
         let adj = 0.075 * period + 0.54;
         let sv = wma_step!(close[today]);
         smooth_price[sp_idx] = sv;
-        let is_even = (today % 2) == 0;
+        let is_even = today.is_multiple_of(2);
 
         let detrender_val = det.step(sv, hilbert_idx, is_even, adj);
         let q1_val = q1_buf.step(detrender_val, hilbert_idx, is_even, adj);
@@ -172,9 +177,17 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
             period = 360.0 / ((im / re).atan() * rad2deg);
         }
         // C-style clamp: comparisons are false for NaN, so NaN propagates correctly
-        if period > 1.5 * prev_period { period = 1.5 * prev_period; }
-        if period < 0.67 * prev_period { period = 0.67 * prev_period; }
-        if period < 6.0 { period = 6.0; } else if period > 50.0 { period = 50.0; }
+        if period > 1.5 * prev_period {
+            period = 1.5 * prev_period;
+        }
+        if period < 0.67 * prev_period {
+            period = 0.67 * prev_period;
+        }
+        if period < 6.0 {
+            period = 6.0;
+        } else if period > 50.0 {
+            period = 50.0;
+        }
         period = 0.2 * period + 0.8 * prev_period;
         smooth_period = 0.33 * period + 0.67 * smooth_period;
 
@@ -188,7 +201,11 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
             let tr = c2r360 * (i as f64) / (dcp_int as f64);
             real_p += tr.sin() * smooth_price[idx];
             imag_p += tr.cos() * smooth_price[idx];
-            idx = if idx == 0 { SMOOTH_PRICE_SIZE - 1 } else { idx - 1 };
+            idx = if idx == 0 {
+                SMOOTH_PRICE_SIZE - 1
+            } else {
+                idx - 1
+            };
         }
 
         let tmp = imag_p.abs();
@@ -221,13 +238,15 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
         let mut idx2 = today;
         for _ in 0..dcp_int2 {
             avg += close[idx2];
-            if idx2 > 0 { idx2 -= 1; }
+            idx2 = idx2.saturating_sub(1);
         }
         if dcp_int2 > 0 {
             avg /= dcp_int2 as f64;
         }
         let trendline = (4.0 * avg + 3.0 * it1 + 2.0 * it2 + it3) / 10.0;
-        it3 = it2; it2 = it1; it1 = avg;
+        it3 = it2;
+        it2 = it1;
+        it1 = avg;
 
         results[today] = Some(HtBarResult {
             smooth_period,

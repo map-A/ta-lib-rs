@@ -58,7 +58,10 @@ pub fn stoch(
     slowk_period: usize,
     slowd_period: usize,
 ) -> StochOutput {
-    let empty = StochOutput { slowk: vec![], slowd: vec![] };
+    let empty = StochOutput {
+        slowk: vec![],
+        slowd: vec![],
+    };
 
     let n = close.len();
     if fastk_period == 0 || slowk_period == 0 || slowd_period == 0 {
@@ -77,90 +80,100 @@ pub fn stoch(
     let mut out_slowk = vec![0.0f64; out_len];
     let mut out_slowd = vec![0.0f64; out_len];
 
-    // 融合两个 SMA 过程：用小型环形缓冲区替代中间大数组 fastk[] 和 slowk[]
-    // sk_ring: 存储最近 slowk_period 个 fastk 值（滑动窗口）
-    // sd_ring: 存储最近 slowd_period 个 slowk 值（滑动窗口）
+    // ta-lib 条件重扫算法（NaN 初始化）用于计算 fastk
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
+    let mut lowest = f64::NAN;
+    let mut lowest_idx: isize = -1;
+
+    // 两个 SMA 环形缓冲区（永久污染：NaN 进入后 sum 永久为 NaN）
     let mut sk_ring = vec![0.0f64; slowk_period];
     let mut sd_ring = vec![0.0f64; slowd_period];
     let mut sk_sum = 0.0f64;
     let mut sd_sum = 0.0f64;
-    let mut sk_head = 0usize; // sk_ring 中最旧元素的位置
-    let mut sd_head = 0usize; // sd_ring 中最旧元素的位置
+    let mut sk_head = 0usize;
+    let mut sd_head = 0usize;
     let sk_inv = 1.0 / slowk_period as f64;
     let sd_inv = 1.0 / slowd_period as f64;
-    let mut fk_count = 0usize; // 已生成的 fastk 值数量
-    let mut sk_count = 0usize; // 已生成的 slowk 值数量
+    let mut fk_count = 0usize;
+    let mut sk_count = 0usize;
     let mut out_idx = 0usize;
 
-    // Step 1: O(n) 单调双端队列，维护滑动最大/最小值
-    let cap = fastk_period.next_power_of_two().max(4);
-    let mask = cap - 1;
-    let mut max_buf = vec![0usize; cap];
-    let mut min_buf = vec![0usize; cap];
-    let mut max_front = 0usize;
-    let mut max_back = 0usize;
-    let mut min_front = 0usize;
-    let mut min_back = 0usize;
-
     for i in 0..n {
-        if i >= fastk_period {
-            let window_start = i - fastk_period + 1;
-            while max_front != max_back && max_buf[max_front & mask] < window_start {
-                max_front = max_front.wrapping_add(1);
-            }
-            while min_front != min_back && min_buf[min_front & mask] < window_start {
-                min_front = min_front.wrapping_add(1);
-            }
-        }
-        while max_front != max_back
-            && high[max_buf[max_back.wrapping_sub(1) & mask]] <= high[i]
-        {
-            max_back = max_back.wrapping_sub(1);
-        }
-        max_buf[max_back & mask] = i;
-        max_back = max_back.wrapping_add(1);
-
-        while min_front != min_back
-            && low[min_buf[min_back.wrapping_sub(1) & mask]] >= low[i]
-        {
-            min_back = min_back.wrapping_sub(1);
-        }
-        min_buf[min_back & mask] = i;
-        min_back = min_back.wrapping_add(1);
-
         if i + 1 >= fastk_period {
-            let hh = high[max_buf[max_front & mask]];
-            let ll = low[min_buf[min_front & mask]];
-            let fk = if (hh - ll).abs() < f64::EPSILON {
-                0.0
+            let trail = (i + 1 - fastk_period) as isize;
+
+            // 条件重扫：滑动最大高价
+            if highest_idx < trail {
+                let t = trail as usize;
+                highest = high[t];
+                highest_idx = trail;
+                for j in (t + 1)..=i {
+                    if high[j] > highest {
+                        highest = high[j];
+                        highest_idx = j as isize;
+                    }
+                }
+            } else if high[i] > highest {
+                highest = high[i];
+                highest_idx = i as isize;
+            }
+
+            // 条件重扫：滑动最小低价
+            if lowest_idx < trail {
+                let t = trail as usize;
+                lowest = low[t];
+                lowest_idx = trail;
+                for j in (t + 1)..=i {
+                    if low[j] < lowest {
+                        lowest = low[j];
+                        lowest_idx = j as isize;
+                    }
+                }
+            } else if low[i] < lowest {
+                lowest = low[i];
+                lowest_idx = i as isize;
+            }
+
+            let fk = if close[i].is_nan() || highest.is_nan() || lowest.is_nan() {
+                f64::NAN
             } else {
-                (close[i] - ll) / (hh - ll) * 100.0
+                let diff = highest - lowest;
+                if diff.abs() < f64::EPSILON {
+                    0.0
+                } else {
+                    (close[i] - lowest) / diff * 100.0
+                }
             };
 
+            // slowk SMA（永久污染的增量运行总和）
             if fk_count < slowk_period {
                 sk_ring[fk_count] = fk;
-                sk_sum += fk;
+                sk_sum += fk; // NaN 进入 sum 后永久为 NaN
             } else {
-                let old = sk_ring[sk_head];
+                sk_sum += fk - sk_ring[sk_head];
                 sk_ring[sk_head] = fk;
-                sk_sum += fk - old;
                 sk_head += 1;
-                if sk_head == slowk_period { sk_head = 0; }
+                if sk_head == slowk_period {
+                    sk_head = 0;
+                }
             }
             fk_count += 1;
 
             if fk_count >= slowk_period {
                 let sk = sk_sum * sk_inv;
 
+                // slowd SMA（永久污染的增量运行总和）
                 if sk_count < slowd_period {
                     sd_ring[sk_count] = sk;
                     sd_sum += sk;
                 } else {
-                    let old = sd_ring[sd_head];
+                    sd_sum += sk - sd_ring[sd_head];
                     sd_ring[sd_head] = sk;
-                    sd_sum += sk - old;
                     sd_head += 1;
-                    if sd_head == slowd_period { sd_head = 0; }
+                    if sd_head == slowd_period {
+                        sd_head = 0;
+                    }
                 }
                 sk_count += 1;
 
@@ -173,7 +186,10 @@ pub fn stoch(
         }
     }
 
-    StochOutput { slowk: out_slowk, slowd: out_slowd }
+    StochOutput {
+        slowk: out_slowk,
+        slowd: out_slowd,
+    }
 }
 
 #[cfg(test)]
@@ -222,8 +238,12 @@ mod tests {
     #[test]
     fn stoch_range() {
         let n = 100_usize;
-        let high: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0 + 1.0).collect();
-        let low: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0 - 1.0).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| (i as f64).sin() * 10.0 + 50.0 + 1.0)
+            .collect();
+        let low: Vec<f64> = (0..n)
+            .map(|i| (i as f64).sin() * 10.0 + 50.0 - 1.0)
+            .collect();
         let close: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0).collect();
         let res = stoch(&high, &low, &close, 5, 3, 3);
         for (k, d) in res.slowk.iter().zip(res.slowd.iter()) {

@@ -9,7 +9,9 @@ pub fn cdllongleggeddoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64])
     // ShadowLong: RealBody, period=0 → direct comparison, no rolling needed
     let body_period = BODY_DOJI_PERIOD;
     let lookback = body_period;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut body_sum: f64 = (0..body_period).map(|j| hl_range(high[j], low[j])).sum();
     let mut body_trailing = 0usize;
@@ -24,8 +26,7 @@ pub fn cdllongleggeddoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64])
         let shadow_long_thresh = rb * SHADOW_LONG_FACTOR;
 
         // Doji body AND (either shadow is long)
-        if rb <= avg_body * BODY_DOJI_FACTOR &&
-           (us > shadow_long_thresh || ls > shadow_long_thresh)
+        if rb <= avg_body * BODY_DOJI_FACTOR && (us > shadow_long_thresh || ls > shadow_long_thresh)
         {
             out[i] = 100.0; // always +100
         }

@@ -8,16 +8,24 @@ pub fn cdlladderbottom(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -
     // ShadowVeryShort: HighLow range, period=10, anchor at i-1
     let period = SHADOW_VERY_SHORT_PERIOD;
     let lookback = period + 4;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     // Init: anchor at i-1 means bars [startIdx-1-period .. startIdx-2] = bars [period+3 .. period+3+period-1]
     // In loop starts at i=lookback=period+4, trailing at i-1-period = 3
     // Init sum for trailing starting at index 3 through lookback-1-1 = period+2
-    let mut shadow_sum: f64 = (3..=(3 + period - 1)).map(|j| hl_range(high[j], low[j])).sum();
+    let mut shadow_sum: f64 = (3..=(3 + period - 1))
+        .map(|j| hl_range(high[j], low[j]))
+        .sum();
     let mut trailing = 3usize;
 
     for i in lookback..n {
-        let avg_shadow = if period > 0 { shadow_sum / period as f64 } else { 0.0 };
+        let avg_shadow = if period > 0 {
+            shadow_sum / period as f64
+        } else {
+            0.0
+        };
 
         let is_pattern =
             // First 3: declining bearish candles with lower opens and closes
@@ -34,10 +42,12 @@ pub fn cdlladderbottom(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -
             open[i] > open[i-1] &&
             close[i] > high[i-1];
 
-        if is_pattern { out[i] = 100.0; }
+        if is_pattern {
+            out[i] = 100.0;
+        }
 
         // Update rolling sum anchored at i-1
-        shadow_sum += hl_range(high[i-1], low[i-1]);
+        shadow_sum += hl_range(high[i - 1], low[i - 1]);
         shadow_sum -= hl_range(high[trailing], low[trailing]);
         trailing += 1;
     }

@@ -2,7 +2,11 @@ use polars_core::prelude::*;
 use polars_ta_core::trend::macd as macd_core;
 
 fn series_to_f64(s: &Series) -> PolarsResult<Vec<f64>> {
-    Ok(s.cast(&DataType::Float64)?.f64()?.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+    Ok(s.cast(&DataType::Float64)?
+        .f64()?
+        .into_iter()
+        .map(|v| v.unwrap_or(f64::NAN))
+        .collect())
 }
 
 pub struct MacdSeriesOutput {
@@ -11,7 +15,12 @@ pub struct MacdSeriesOutput {
     pub hist: Series,
 }
 
-pub fn macd_series(close: &Series, fast: usize, slow: usize, signal: usize) -> PolarsResult<MacdSeriesOutput> {
+pub fn macd_series(
+    close: &Series,
+    fast: usize,
+    slow: usize,
+    signal: usize,
+) -> PolarsResult<MacdSeriesOutput> {
     let data = series_to_f64(close)?;
     let out = macd_core(&data, fast, slow, signal);
     Ok(MacdSeriesOutput {

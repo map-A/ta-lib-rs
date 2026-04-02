@@ -7,23 +7,25 @@ pub fn cdldragonflydoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) 
     let mut out = vec![0.0f64; n];
     let period = BODY_DOJI_PERIOD.max(SHADOW_VERY_SHORT_PERIOD);
     let lookback = period;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
-    let mut hl_sum:   f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
+    let mut hl_sum: f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
 
     for i in lookback..n {
-        let avg_hl   = hl_sum   / period as f64;
-        
+        let avg_hl = hl_sum / period as f64;
 
-        let is_pattern =
-            real_body(open[i], close[i]) <= avg_hl * BODY_DOJI_FACTOR &&
-            upper_shadow(open[i], high[i], close[i]) < avg_hl * SHADOW_VERY_SHORT_FACTOR &&
-            lower_shadow(open[i], low[i], close[i]) > avg_hl * SHADOW_VERY_SHORT_FACTOR;
+        let is_pattern = real_body(open[i], close[i]) <= avg_hl * BODY_DOJI_FACTOR
+            && upper_shadow(open[i], high[i], close[i]) < avg_hl * SHADOW_VERY_SHORT_FACTOR
+            && lower_shadow(open[i], low[i], close[i]) > avg_hl * SHADOW_VERY_SHORT_FACTOR;
 
-        if is_pattern { out[i] = 100.0; }
+        if is_pattern {
+            out[i] = 100.0;
+        }
 
-        hl_sum   += hl_range(high[i], low[i]);
-        hl_sum   -= hl_range(high[i - period], low[i - period]);
+        hl_sum += hl_range(high[i], low[i]);
+        hl_sum -= hl_range(high[i - period], low[i - period]);
     }
     out
 }

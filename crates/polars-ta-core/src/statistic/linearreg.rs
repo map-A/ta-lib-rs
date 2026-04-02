@@ -21,31 +21,62 @@ pub fn linearreg(data: &[f64], period: usize) -> Vec<f64> {
     let sum_x2 = pf * (pf - 1.0) * (2.0 * pf - 1.0) / 6.0;
     let divisor = pf * sum_x2 - sum_x * sum_x;
 
-    let mut sum_y = 0.0_f64;
-    let mut sum_xy = 0.0_f64;
-
-    for (x, &y) in data[..period].iter().enumerate() {
-        sum_y += y;
-        sum_xy += x as f64 * y;
-    }
-
     let calc = |sy: f64, sxy: f64| -> f64 {
         let slope = (pf * sxy - sum_x * sy) / divisor;
         let intercept = (sy - slope * sum_x) / pf;
         intercept + slope * (pf - 1.0)
     };
 
+    let mut nan_count: usize = data[..period].iter().filter(|&&x| x.is_nan()).count();
+    let mut sum_y = 0.0_f64;
+    let mut sum_xy = 0.0_f64;
+
+    for (x, &y) in data[..period].iter().enumerate() {
+        if !y.is_nan() {
+            sum_y += y;
+            sum_xy += x as f64 * y;
+        }
+    }
+
     let out_len = n - (period - 1);
     let mut out = Vec::with_capacity(out_len);
-    out.push(calc(sum_y, sum_xy));
+    if nan_count > 0 {
+        out.push(f64::NAN);
+    } else {
+        out.push(calc(sum_y, sum_xy));
+    }
 
     for i in period..n {
         let y_old = data[i - period];
-        sum_y -= y_old;
-        sum_xy -= sum_y;
-        sum_y += data[i];
-        sum_xy += (pf - 1.0) * data[i];
-        out.push(calc(sum_y, sum_xy));
+        let y_new = data[i];
+        let was_dirty = nan_count > 0;
+        if y_old.is_nan() {
+            nan_count -= 1;
+        }
+        if y_new.is_nan() {
+            nan_count += 1;
+        }
+
+        if nan_count > 0 {
+            out.push(f64::NAN);
+        } else if was_dirty {
+            // 刚从脏状态恢复：从头重新计算
+            sum_y = 0.0;
+            sum_xy = 0.0;
+            for (x, &y) in data[i - period + 1..=i].iter().enumerate() {
+                if !y.is_nan() {
+                    sum_y += y;
+                    sum_xy += x as f64 * y;
+                }
+            }
+            out.push(calc(sum_y, sum_xy));
+        } else {
+            sum_y -= y_old;
+            sum_xy -= sum_y;
+            sum_y += y_new;
+            sum_xy += (pf - 1.0) * y_new;
+            out.push(calc(sum_y, sum_xy));
+        }
     }
 
     out

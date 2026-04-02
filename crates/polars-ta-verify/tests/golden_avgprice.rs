@@ -20,25 +20,39 @@ fn run_avgprice_golden(filename: &str, epsilon: f64) {
         println!("SKIP: {}", filename);
         return;
     }
-    let golden =
-        load_golden_file(&path).unwrap_or_else(|e| panic!("{}: {}", filename, e));
+    let golden = load_golden_file(&path).unwrap_or_else(|e| panic!("{}: {}", filename, e));
     let open = golden.get_input("open").unwrap();
     let high = golden.get_input("high").unwrap();
     let low = golden.get_input("low").unwrap();
     let close = golden.get_input("close").unwrap();
     let actual = avgprice(&open, &high, &low, &close);
     let label = format!("avgprice/{}", golden.meta.dataset);
-    assert_close(&actual, golden.get_output_values("values").unwrap(), epsilon, &label);
+    assert_close(
+        &actual,
+        golden.get_output_values("values").unwrap(),
+        epsilon,
+        &label,
+    );
 }
 
 #[test]
-fn avgprice_normal_1000() { run_avgprice_golden("avgprice__normal_1000.json", 1e-10); }
+fn avgprice_normal_1000() {
+    run_avgprice_golden("avgprice__normal_1000.json", 1e-10);
+}
 #[test]
 #[ignore = "NaN propagation: ta-lib skips NaN in multi-input windows, we propagate per IEEE 754"]
-fn avgprice_with_nan() { run_avgprice_golden("avgprice__with_nan_5pct.json", 1e-10); }
+fn avgprice_with_nan() {
+    run_avgprice_golden("avgprice__with_nan_5pct.json", 1e-10);
+}
 #[test]
-fn avgprice_all_same_value() { run_avgprice_golden("avgprice__all_same_value.json", 1e-10); }
+fn avgprice_all_same_value() {
+    run_avgprice_golden("avgprice__all_same_value.json", 1e-10);
+}
 #[test]
-fn avgprice_real_btcusdt() { run_avgprice_golden("avgprice__real_btcusdt_1d.json", 1e-10); }
+fn avgprice_real_btcusdt() {
+    run_avgprice_golden("avgprice__real_btcusdt_1d.json", 1e-10);
+}
 #[test]
-fn avgprice_real_flat_period() { run_avgprice_golden("avgprice__real_flat_period.json", 1e-10); }
+fn avgprice_real_flat_period() {
+    run_avgprice_golden("avgprice__real_flat_period.json", 1e-10);
+}

@@ -27,14 +27,20 @@ pub fn avgprice_series(
     let h = series_to_f64(high)?;
     let l = series_to_f64(low)?;
     let c = series_to_f64(close)?;
-    Ok(vec_to_series("avgprice".into(), price_transform::avgprice(&o, &h, &l, &c)))
+    Ok(vec_to_series(
+        "avgprice".into(),
+        price_transform::avgprice(&o, &h, &l, &c),
+    ))
 }
 
 /// Median Price: `(high + low) / 2`.
 pub fn medprice_series(high: &Series, low: &Series) -> PolarsResult<Series> {
     let h = series_to_f64(high)?;
     let l = series_to_f64(low)?;
-    Ok(vec_to_series("medprice".into(), price_transform::medprice(&h, &l)))
+    Ok(vec_to_series(
+        "medprice".into(),
+        price_transform::medprice(&h, &l),
+    ))
 }
 
 /// Typical Price: `(high + low + close) / 3`.
@@ -42,7 +48,10 @@ pub fn typprice_series(high: &Series, low: &Series, close: &Series) -> PolarsRes
     let h = series_to_f64(high)?;
     let l = series_to_f64(low)?;
     let c = series_to_f64(close)?;
-    Ok(vec_to_series("typprice".into(), price_transform::typprice(&h, &l, &c)))
+    Ok(vec_to_series(
+        "typprice".into(),
+        price_transform::typprice(&h, &l, &c),
+    ))
 }
 
 /// Weighted Close Price: `(high + low + close * 2) / 4`.
@@ -50,5 +59,8 @@ pub fn wclprice_series(high: &Series, low: &Series, close: &Series) -> PolarsRes
     let h = series_to_f64(high)?;
     let l = series_to_f64(low)?;
     let c = series_to_f64(close)?;
-    Ok(vec_to_series("wclprice".into(), price_transform::wclprice(&h, &l, &c)))
+    Ok(vec_to_series(
+        "wclprice".into(),
+        price_transform::wclprice(&h, &l, &c),
+    ))
 }

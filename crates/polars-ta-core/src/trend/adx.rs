@@ -91,7 +91,7 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pl = low[period - 1];
         let tr = adx_tr(h, l, pc);
         let (pdm, mdm) = adx_dm(h, ph, l, pl);
-        s_tr  = s_tr  * k + tr;
+        s_tr = s_tr * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
     }
@@ -103,7 +103,11 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
     // 第一个 DX（来自初始化块）
     {
         let dm_sum = s_pdm + s_mdm;
-        let dx0 = if dm_sum == 0.0 { 0.0 } else { 100.0 * (s_pdm - s_mdm).abs() / dm_sum };
+        let dx0 = if dm_sum == 0.0 {
+            0.0
+        } else {
+            100.0 * (s_pdm - s_mdm).abs() / dm_sum
+        };
         dx_init.push(dx0);
     }
 
@@ -116,11 +120,15 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pl = low[i - 1];
         let tr = adx_tr(h, l, pc);
         let (pdm, mdm) = adx_dm(h, ph, l, pl);
-        s_tr  = s_tr  * k + tr;
+        s_tr = s_tr * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
         let dm_sum = s_pdm + s_mdm;
-        let dx = if dm_sum == 0.0 { 0.0 } else { 100.0 * (s_pdm - s_mdm).abs() / dm_sum };
+        let dx = if dm_sum == 0.0 {
+            0.0
+        } else {
+            100.0 * (s_pdm - s_mdm).abs() / dm_sum
+        };
         dx_init.push(dx);
     }
 
@@ -139,11 +147,15 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pl = low[i - 1];
         let tr = adx_tr(h, l, pc);
         let (pdm, mdm) = adx_dm(h, ph, l, pl);
-        s_tr  = s_tr  * k + tr;
+        s_tr = s_tr * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
         let dm_sum = s_pdm + s_mdm;
-        let dx = if dm_sum == 0.0 { 0.0 } else { 100.0 * (s_pdm - s_mdm).abs() / dm_sum };
+        let dx = if dm_sum == 0.0 {
+            0.0
+        } else {
+            100.0 * (s_pdm - s_mdm).abs() / dm_sum
+        };
         prev_adx = prev_adx * k + dx * inv_pf;
         out.push(prev_adx);
     }
@@ -237,10 +249,7 @@ mod tests {
         let close: Vec<f64> = high.iter().map(|&h| h - 1.0).collect();
         let result = adx(&high, &low, &close, 14);
         for &v in &result {
-            assert!(
-                v >= 0.0 && v <= 100.0,
-                "ADX out of range: {v}"
-            );
+            assert!(v >= 0.0 && v <= 100.0, "ADX out of range: {v}");
         }
     }
 
@@ -254,7 +263,10 @@ mod tests {
         let result = adx(&high, &low, &close, 14);
         // 在稳定趋势中 ADX 应逐步升高并趋近 100
         let last = *result.last().unwrap();
-        assert!(last > 50.0, "Expected ADX > 50 in strong uptrend, got {last}");
+        assert!(
+            last > 50.0,
+            "Expected ADX > 50 in strong uptrend, got {last}"
+        );
     }
 
     #[test]

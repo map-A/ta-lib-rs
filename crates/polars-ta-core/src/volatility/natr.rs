@@ -57,7 +57,8 @@ pub fn natr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64>
         return vec![];
     }
 
-    let out: Vec<f64> = atr_vals.iter()
+    let out: Vec<f64> = atr_vals
+        .iter()
         .zip(close[period..].iter())
         .map(|(&a, &c)| a / c * 100.0)
         .collect();
@@ -78,8 +79,8 @@ mod tests {
     #[test]
     fn natr_output_length() {
         let n = 20;
-        let high:  Vec<f64> = vec![10.0; n];
-        let low:   Vec<f64> = vec![8.0; n];
+        let high: Vec<f64> = vec![10.0; n];
+        let low: Vec<f64> = vec![8.0; n];
         let close: Vec<f64> = vec![9.0; n];
         let result = natr(&high, &low, &close, 14);
         assert_eq!(result.len(), n - 14);
@@ -89,8 +90,8 @@ mod tests {
     fn natr_constant_range() {
         // TR = high - low = 2, close = 10, NATR = 2/10*100 = 20%
         let n = 20;
-        let high:  Vec<f64> = vec![11.0; n];
-        let low:   Vec<f64> = vec![9.0; n];
+        let high: Vec<f64> = vec![11.0; n];
+        let low: Vec<f64> = vec![9.0; n];
         let close: Vec<f64> = vec![10.0; n];
         let result = natr(&high, &low, &close, 5);
         assert_eq!(result.len(), n - 5);
@@ -101,9 +102,9 @@ mod tests {
 
     #[test]
     fn natr_positive_values() {
-        let high  = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
-        let low   = vec![8.0,  9.0,  8.0,  10.0, 9.0,  11.0];
-        let close = vec![9.0,  11.0, 10.0, 12.0, 11.0, 13.0];
+        let high = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
+        let low = vec![8.0, 9.0, 8.0, 10.0, 9.0, 11.0];
+        let close = vec![9.0, 11.0, 10.0, 12.0, 11.0, 13.0];
         let result = natr(&high, &low, &close, 3);
         for v in &result {
             assert!(*v >= 0.0, "NATR should be non-negative, got {v}");
@@ -127,9 +128,9 @@ mod tests {
     fn natr_is_atr_over_close_times_100() {
         use super::super::atr::atr;
 
-        let high  = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
-        let low   = vec![8.0,  9.0,  8.0,  10.0, 9.0,  11.0];
-        let close = vec![9.0,  11.0, 10.0, 12.0, 11.0, 13.0];
+        let high = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
+        let low = vec![8.0, 9.0, 8.0, 10.0, 9.0, 11.0];
+        let close = vec![9.0, 11.0, 10.0, 12.0, 11.0, 13.0];
         let period = 3;
 
         let atr_vals = atr(&high, &low, &close, period);

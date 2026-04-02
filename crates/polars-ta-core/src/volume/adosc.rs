@@ -80,7 +80,11 @@ pub fn adosc(
 
     // 内联 AD 计算，避免中间 Vec 分配和第二次数据遍历
     let range0 = high[0] - low[0];
-    let clv0 = if range0 == 0.0 { 0.0 } else { (2.0 * close[0] - high[0] - low[0]) / range0 };
+    let clv0 = if range0 > 0.0 {
+        (2.0 * close[0] - high[0] - low[0]) / range0
+    } else {
+        0.0
+    };
     let mut ad_acc = clv0 * volume[0];
 
     let mut fast_prev = ad_acc;
@@ -93,7 +97,11 @@ pub fn adosc(
         let h = high[i];
         let l = low[i];
         let range = h - l;
-        let clv = if range == 0.0 { 0.0 } else { (2.0 * close[i] - h - l) / range };
+        let clv = if range > 0.0 {
+            (2.0 * close[i] - h - l) / range
+        } else {
+            0.0
+        };
         ad_acc += clv * volume[i];
         fast_prev = ad_acc * kf + fast_prev * kf1;
         slow_prev = ad_acc * ks + slow_prev * ks1;
@@ -106,7 +114,11 @@ pub fn adosc(
         let h = high[i];
         let l = low[i];
         let range = h - l;
-        let clv = if range == 0.0 { 0.0 } else { (2.0 * close[i] - h - l) / range };
+        let clv = if range > 0.0 {
+            (2.0 * close[i] - h - l) / range
+        } else {
+            0.0
+        };
         ad_acc += clv * volume[i];
         fast_prev = ad_acc * kf + fast_prev * kf1;
         slow_prev = ad_acc * ks + slow_prev * ks1;
@@ -130,9 +142,9 @@ mod tests {
     #[test]
     fn adosc_output_length() {
         let n = 20usize;
-        let high:   Vec<f64> = vec![11.0; n];
-        let low:    Vec<f64> = vec![9.0; n];
-        let close:  Vec<f64> = vec![10.0; n];
+        let high: Vec<f64> = vec![11.0; n];
+        let low: Vec<f64> = vec![9.0; n];
+        let close: Vec<f64> = vec![10.0; n];
         let volume: Vec<f64> = vec![1000.0; n];
         let result = adosc(&high, &low, &close, &volume, 3, 10);
         // lookback = slow_period - 1 = 9
@@ -143,9 +155,9 @@ mod tests {
     fn adosc_flat_input_is_zero() {
         // 价格恒定在中点 → clv=0 → AD=0 → fast_ema=slow_ema=0 → ADOSC=0
         let n = 30usize;
-        let high:   Vec<f64> = vec![11.0; n];
-        let low:    Vec<f64> = vec![9.0; n];
-        let close:  Vec<f64> = vec![10.0; n];
+        let high: Vec<f64> = vec![11.0; n];
+        let low: Vec<f64> = vec![9.0; n];
+        let close: Vec<f64> = vec![10.0; n];
         let volume: Vec<f64> = vec![1000.0; n];
         let result = adosc(&high, &low, &close, &volume, 3, 10);
         for v in &result {
@@ -177,9 +189,9 @@ mod tests {
     fn adosc_exact_lookback() {
         // 输入长度 = slow_period → 输出长度 = 1
         let n = 10usize;
-        let high:   Vec<f64> = vec![11.0; n];
-        let low:    Vec<f64> = vec![9.0; n];
-        let close:  Vec<f64> = vec![10.0; n];
+        let high: Vec<f64> = vec![11.0; n];
+        let low: Vec<f64> = vec![9.0; n];
+        let close: Vec<f64> = vec![10.0; n];
         let volume: Vec<f64> = vec![1000.0; n];
         let result = adosc(&high, &low, &close, &volume, 3, 10);
         assert_eq!(result.len(), 1);
@@ -189,9 +201,9 @@ mod tests {
     fn adosc_convergence_on_constant_ad() {
         // AD 线为常数时，快慢 EMA 最终收敛到同一值 → ADOSC ≈ 0
         let n = 100usize;
-        let high:   Vec<f64> = vec![12.0; n];
-        let low:    Vec<f64> = vec![8.0; n];
-        let close:  Vec<f64> = vec![12.0; n]; // clv = 1 → AD 线单调递增
+        let high: Vec<f64> = vec![12.0; n];
+        let low: Vec<f64> = vec![8.0; n];
+        let close: Vec<f64> = vec![12.0; n]; // clv = 1 → AD 线单调递增
         let volume: Vec<f64> = vec![1.0; n];
         let result = adosc(&high, &low, &close, &volume, 3, 10);
         // 最后几个值应趋近于 0（EMA 追上线性趋势的差收敛）

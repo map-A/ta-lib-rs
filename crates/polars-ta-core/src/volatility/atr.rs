@@ -100,8 +100,8 @@ mod tests {
     #[test]
     fn atr_output_length() {
         let n = 20;
-        let high:  Vec<f64> = vec![10.0; n];
-        let low:   Vec<f64> = vec![8.0; n];
+        let high: Vec<f64> = vec![10.0; n];
+        let low: Vec<f64> = vec![8.0; n];
         let close: Vec<f64> = vec![9.0; n];
         let result = atr(&high, &low, &close, 14);
         assert_eq!(result.len(), n - 14);
@@ -111,8 +111,8 @@ mod tests {
     fn atr_constant_range() {
         // 相邻 bar 高低差恒定 = 2，无跳空 → ATR = 2
         let n = 20;
-        let high:  Vec<f64> = (0..n).map(|i| 10.0 + i as f64).collect();
-        let low:   Vec<f64> = (0..n).map(|i| 8.0 + i as f64).collect();
+        let high: Vec<f64> = (0..n).map(|i| 10.0 + i as f64).collect();
+        let low: Vec<f64> = (0..n).map(|i| 8.0 + i as f64).collect();
         let close: Vec<f64> = (0..n).map(|i| 9.0 + i as f64).collect();
         let result = atr(&high, &low, &close, 5);
         assert_eq!(result.len(), n - 5);
@@ -124,9 +124,9 @@ mod tests {
     #[test]
     fn atr_positive_values() {
         // ATR 必须为非负数
-        let high  = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
-        let low   = vec![8.0,  9.0,  8.0,  10.0, 9.0,  11.0];
-        let close = vec![9.0,  11.0, 10.0, 12.0, 11.0, 13.0];
+        let high = vec![10.0, 12.0, 11.0, 13.0, 12.0, 14.0];
+        let low = vec![8.0, 9.0, 8.0, 10.0, 9.0, 11.0];
+        let close = vec![9.0, 11.0, 10.0, 12.0, 11.0, 13.0];
         let result = atr(&high, &low, &close, 3);
         assert_eq!(result.len(), 3);
         for v in &result {
@@ -136,9 +136,9 @@ mod tests {
 
     #[test]
     fn atr_too_short() {
-        let high  = vec![10.0, 11.0, 12.0];
-        let low   = vec![8.0,  9.0,  10.0];
-        let close = vec![9.0,  10.0, 11.0];
+        let high = vec![10.0, 11.0, 12.0];
+        let low = vec![8.0, 9.0, 10.0];
+        let close = vec![9.0, 10.0, 11.0];
         // n=3, period=3 → output length = n - period = 0
         assert!(atr(&high, &low, &close, 3).is_empty());
         assert!(atr(&high, &low, &close, 14).is_empty());
@@ -154,9 +154,9 @@ mod tests {
     fn atr_period_one() {
         // period=1 → seed = TR[0], Wilder 退化为直通
         // ATR = TR 本身
-        let high  = vec![10.0, 12.0, 11.0, 13.0];
-        let low   = vec![8.0,  9.0,  8.0,  10.0];
-        let close = vec![9.0,  11.0, 10.0, 12.0];
+        let high = vec![10.0, 12.0, 11.0, 13.0];
+        let low = vec![8.0, 9.0, 8.0, 10.0];
+        let close = vec![9.0, 11.0, 10.0, 12.0];
         let result = atr(&high, &low, &close, 1);
         // period=1, lookback=1, output len = 4-1 = 3
         // TR: [max(3,3,0)=3, max(3,1,2)=3, max(3,1,2)=3]
@@ -173,9 +173,9 @@ mod tests {
         // TR 为 [2, 2, 2, 4] with period=3
         // seed = (2+2+2)/3 = 2.0
         // next: (2*(3-1) + 4) / 3 = 8/3 ≈ 2.6667
-        let high  = vec![10.0, 12.0, 12.0, 12.0, 14.0];
-        let low   = vec![8.0,  10.0, 10.0, 10.0, 10.0];
-        let close = vec![9.0,  11.0, 11.0, 11.0, 13.0];
+        let high = vec![10.0, 12.0, 12.0, 12.0, 14.0];
+        let low = vec![8.0, 10.0, 10.0, 10.0, 10.0];
+        let close = vec![9.0, 11.0, 11.0, 11.0, 13.0];
         // TR[0]=max(2,|12-9|,|10-9|)=3, TR[1]=max(2,1,1)=2, TR[2]=max(2,1,1)=2, TR[3]=max(4,3,1)=4
         let result = atr(&high, &low, &close, 3);
         assert_eq!(result.len(), 2);

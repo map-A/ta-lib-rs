@@ -1,12 +1,8 @@
 //! MAXINDEX — Index of Rolling Maximum
 //!
-//! 滑动窗口最大值的位置索引，使用单调递减双端队列实现 O(n) 复杂度。
-//!
-//! Returns the 0-based absolute index in the original array of the maximum
-//! value within each window, returned as `f64` to match ta-lib's convention.
-//! Numerically identical to ta-lib's `TA_MAXINDEX`.
-//!
-//! Output length = `n - period + 1` (lookback = period - 1).
+//! Returns the absolute (0-based) index of the maximum, as `f64`.
+//! Never outputs NaN — even when oldest is NaN, the index (pointing to the NaN
+//! element) is returned, matching ta-lib's C behavior exactly.
 
 pub fn maxindex(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
@@ -14,33 +10,25 @@ pub fn maxindex(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period + 1;
+    let mut out = vec![0.0_f64; out_len];
 
-    let cap = period.next_power_of_two().max(4);
-    let mask = cap - 1;
-    let mut buf = vec![0usize; cap];
-    let mut front = 0usize;
-    let mut back = 0usize;
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
 
-    let mut out = vec![0.0f64; out_len];
+    for i in 0..out_len {
+        let newest = i + period - 1;
 
-    for i in 0..n {
-        if i >= period {
-            let ws = i - period + 1;
-            while front != back && buf[front & mask] < ws {
-                front = front.wrapping_add(1);
+        if highest_idx < i as isize {
+            highest_idx = i as isize;
+            highest = data[i];
+            for j in (i + 1)..=newest {
+                if data[j] > highest { highest = data[j]; highest_idx = j as isize; }
             }
+        } else {
+            if data[newest] > highest { highest = data[newest]; highest_idx = newest as isize; }
         }
-        while front != back
-            && data[buf[back.wrapping_sub(1) & mask]] < data[i]
-        {
-            back = back.wrapping_sub(1);
-        }
-        buf[back & mask] = i;
-        back = back.wrapping_add(1);
-
-        if i >= period - 1 {
-            out[i + 1 - period] = buf[front & mask] as f64;
-        }
+        // Always output the index (even when highest is NaN — index points to oldest NaN element)
+        out[i] = highest_idx as f64;
     }
     out
 }

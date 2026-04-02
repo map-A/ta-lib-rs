@@ -62,7 +62,9 @@ pub fn dema(data: &[f64], period: usize) -> Vec<f64> {
     debug_assert_eq!(ema1_aligned.len(), ema2.len());
 
     let _out_len = ema2.len();
-    let out: Vec<f64> = ema1_aligned.iter().zip(ema2.iter())
+    let out: Vec<f64> = ema1_aligned
+        .iter()
+        .zip(ema2.iter())
         .map(|(&a, &b)| 2.0 * a - b)
         .collect();
     out

@@ -23,7 +23,9 @@ pub fn cdlgapsidesidewhite(open: &[f64], high: &[f64], low: &[f64], close: &[f64
     let n = open.len();
     let mut out = vec![0.0f64; n];
     let lookback = NEAR_PERIOD + 2; // = 7
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     // ta-lib init: NearTrailingIdx = startIdx - NEAR_PERIOD = lookback - NEAR_PERIOD = 2
     // init loop: i from 2..lookback (2,3,4,5,6), accumulates HL[i-1] = HL[1..5]
@@ -32,26 +34,26 @@ pub fn cdlgapsidesidewhite(open: &[f64], high: &[f64], low: &[f64], close: &[f64
 
     for i in lookback..n {
         let avg = near_sum / NEAR_PERIOD as f64;
-        let rb1 = real_body(open[i-1], close[i-1]);
+        let rb1 = real_body(open[i - 1], close[i - 1]);
         let rb2 = real_body(open[i], close[i]);
 
         // Both i-1 and i must have real body gap from i-2
-        let gap_up = real_body_gap_up(open[i-1], close[i-1], open[i-2], close[i-2])
-                  && real_body_gap_up(open[i], close[i], open[i-2], close[i-2]);
-        let gap_dn = real_body_gap_down(open[i-1], close[i-1], open[i-2], close[i-2])
-                  && real_body_gap_down(open[i], close[i], open[i-2], close[i-2]);
-        let both_white = candle_color(open[i-1], close[i-1]) == 1
-                      && candle_color(open[i], close[i]) == 1;
+        let gap_up = real_body_gap_up(open[i - 1], close[i - 1], open[i - 2], close[i - 2])
+            && real_body_gap_up(open[i], close[i], open[i - 2], close[i - 2]);
+        let gap_dn = real_body_gap_down(open[i - 1], close[i - 1], open[i - 2], close[i - 2])
+            && real_body_gap_down(open[i], close[i], open[i - 2], close[i - 2]);
+        let both_white =
+            candle_color(open[i - 1], close[i - 1]) == 1 && candle_color(open[i], close[i]) == 1;
         let body_sim = (rb2 - rb1).abs() < avg * NEAR_FACTOR;
-        let open_sim = (open[i] - open[i-1]).abs() < avg * EQUAL_FACTOR;
+        let open_sim = (open[i] - open[i - 1]).abs() < avg * EQUAL_FACTOR;
 
         if (gap_up || gap_dn) && both_white && body_sim && open_sim {
             out[i] = if gap_up { 100.0 } else { -100.0 };
         }
 
         // Update rolling sum (after condition check, matching ta-lib update order)
-        near_sum += hl_range(high[i-1], low[i-1])
-                  - hl_range(high[near_trailing - 1], low[near_trailing - 1]);
+        near_sum += hl_range(high[i - 1], low[i - 1])
+            - hl_range(high[near_trailing - 1], low[near_trailing - 1]);
         near_trailing += 1;
     }
     out

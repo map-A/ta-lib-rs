@@ -84,9 +84,9 @@ mod tests {
     #[test]
     fn ad_basic() {
         // close = midpoint → clv = 0 → ad = 0 throughout
-        let high   = vec![10.0, 11.0];
-        let low    = vec![8.0,  9.0];
-        let close  = vec![9.0,  10.0];   // midpoints
+        let high = vec![10.0, 11.0];
+        let low = vec![8.0, 9.0];
+        let close = vec![9.0, 10.0]; // midpoints
         let volume = vec![1000.0, 2000.0];
         let result = ad(&high, &low, &close, &volume);
         assert_eq!(result.len(), 2);
@@ -97,9 +97,9 @@ mod tests {
     #[test]
     fn ad_close_at_high() {
         // close == high → clv = 1 → ad[0] = volume[0]
-        let high   = vec![10.0];
-        let low    = vec![8.0];
-        let close  = vec![10.0];
+        let high = vec![10.0];
+        let low = vec![8.0];
+        let close = vec![10.0];
         let volume = vec![500.0];
         let result = ad(&high, &low, &close, &volume);
         assert_eq!(result.len(), 1);
@@ -109,9 +109,9 @@ mod tests {
     #[test]
     fn ad_close_at_low() {
         // close == low → clv = -1 → ad[0] = -volume[0]
-        let high   = vec![10.0];
-        let low    = vec![8.0];
-        let close  = vec![8.0];
+        let high = vec![10.0];
+        let low = vec![8.0];
+        let close = vec![8.0];
         let volume = vec![500.0];
         let result = ad(&high, &low, &close, &volume);
         assert_eq!(result.len(), 1);
@@ -121,9 +121,9 @@ mod tests {
     #[test]
     fn ad_high_equals_low() {
         // 高低相同 → clv = 0 → 不改变累积值
-        let high   = vec![10.0, 10.0];
-        let low    = vec![10.0, 10.0];
-        let close  = vec![10.0, 10.0];
+        let high = vec![10.0, 10.0];
+        let low = vec![10.0, 10.0];
+        let close = vec![10.0, 10.0];
         let volume = vec![1000.0, 1000.0];
         let result = ad(&high, &low, &close, &volume);
         assert_eq!(result.len(), 2);
@@ -138,10 +138,10 @@ mod tests {
 
     #[test]
     fn ad_length_mismatch() {
-        let high  = vec![10.0, 11.0];
-        let low   = vec![8.0];
+        let high = vec![10.0, 11.0];
+        let low = vec![8.0];
         let close = vec![9.0, 10.0];
-        let vol   = vec![100.0, 100.0];
+        let vol = vec![100.0, 100.0];
         assert!(ad(&high, &low, &close, &vol).is_empty());
     }
 
@@ -149,9 +149,9 @@ mod tests {
     fn ad_cumulative_sum() {
         // 验证累积：close 始终在高点 → clv=1, ad[i] = sum of volumes
         let n = 5;
-        let high:   Vec<f64> = vec![10.0; n];
-        let low:    Vec<f64> = vec![8.0; n];
-        let close:  Vec<f64> = vec![10.0; n]; // clv = 1
+        let high: Vec<f64> = vec![10.0; n];
+        let low: Vec<f64> = vec![8.0; n];
+        let close: Vec<f64> = vec![10.0; n]; // clv = 1
         let volume: Vec<f64> = vec![100.0; n];
         let result = ad(&high, &low, &close, &volume);
         assert_eq!(result.len(), n);

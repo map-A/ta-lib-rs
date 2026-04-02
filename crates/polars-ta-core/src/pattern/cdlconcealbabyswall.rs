@@ -7,7 +7,9 @@ pub fn cdlconcealbabyswall(open: &[f64], high: &[f64], low: &[f64], close: &[f64
     let mut out = vec![0.0f64; n];
     let period = SHADOW_VERY_SHORT_PERIOD;
     let lookback = period + 3;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut shadow_sum: [f64; 4] = [
         (0..period).map(|j| hl_range(high[j], low[j])).sum(),
@@ -20,8 +22,7 @@ pub fn cdlconcealbabyswall(open: &[f64], high: &[f64], low: &[f64], close: &[f64
         let avg0 = shadow_sum[0] / period as f64;
         let avg1 = shadow_sum[1] / period as f64;
 
-        let is_pattern =
-            candle_color(open[i-3], close[i-3]) == -1 &&
+        let is_pattern = candle_color(open[i-3], close[i-3]) == -1 &&
             candle_color(open[i-2], close[i-2]) == -1 &&
             candle_color(open[i-1], close[i-1]) == -1 &&
             candle_color(open[i],   close[i])   == -1 &&
@@ -37,7 +38,9 @@ pub fn cdlconcealbabyswall(open: &[f64], high: &[f64], low: &[f64], close: &[f64
             open[i] >= open[i-1].max(close[i-1]) &&
             close[i] <= open[i-1].min(close[i-1]);
 
-        if is_pattern { out[i] = 100.0; }
+        if is_pattern {
+            out[i] = 100.0;
+        }
 
         for k in 0..4usize {
             let j = i - 3 + k;

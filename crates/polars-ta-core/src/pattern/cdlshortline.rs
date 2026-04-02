@@ -7,7 +7,9 @@ pub fn cdlshortline(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> V
     let mut out = vec![0.0f64; n];
     let period = BODY_SHORT_PERIOD.max(SHADOW_SHORT_PERIOD);
     let lookback = period;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
     let mut shadow_sum: f64 = (0..period)
@@ -25,14 +27,19 @@ pub fn cdlshortline(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> V
             && us < avg_shadow * SHADOW_SHORT_FACTOR
             && ls < avg_shadow * SHADOW_SHORT_FACTOR
         {
-            out[i] = if candle_color(open[i], close[i]) == 1 { 100.0 } else { -100.0 };
+            out[i] = if candle_color(open[i], close[i]) == 1 {
+                100.0
+            } else {
+                -100.0
+            };
         }
 
         body_sum += real_body(open[i], close[i]);
-        body_sum -= real_body(open[i-period], close[i-period]);
-        shadow_sum += upper_shadow(open[i], high[i], close[i]) + lower_shadow(open[i], low[i], close[i]);
-        shadow_sum -= upper_shadow(open[i-period], high[i-period], close[i-period])
-            + lower_shadow(open[i-period], low[i-period], close[i-period]);
+        body_sum -= real_body(open[i - period], close[i - period]);
+        shadow_sum +=
+            upper_shadow(open[i], high[i], close[i]) + lower_shadow(open[i], low[i], close[i]);
+        shadow_sum -= upper_shadow(open[i - period], high[i - period], close[i - period])
+            + lower_shadow(open[i - period], low[i - period], close[i - period]);
     }
     out
 }

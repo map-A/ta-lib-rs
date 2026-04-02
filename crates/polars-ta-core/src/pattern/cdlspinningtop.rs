@@ -7,7 +7,9 @@ pub fn cdlspinningtop(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
     let mut out = vec![0.0f64; n];
     let period = BODY_SHORT_PERIOD;
     let lookback = period;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
 
@@ -22,7 +24,7 @@ pub fn cdlspinningtop(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
         }
 
         body_sum += real_body(open[i], close[i]);
-        body_sum -= real_body(open[i-period], close[i-period]);
+        body_sum -= real_body(open[i - period], close[i - period]);
     }
     out
 }

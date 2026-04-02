@@ -69,7 +69,8 @@ pub fn tema(data: &[f64], period: usize) -> Vec<f64> {
     debug_assert_eq!(ema2_aligned.len(), ema3.len());
 
     let _out_len = ema3.len();
-    let out: Vec<f64> = ema1_aligned.iter()
+    let out: Vec<f64> = ema1_aligned
+        .iter()
         .zip(ema2_aligned.iter())
         .zip(ema3.iter())
         .map(|((&a, &b), &c)| 3.0 * a - 3.0 * b + c)

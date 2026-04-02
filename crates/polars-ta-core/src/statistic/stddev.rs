@@ -24,14 +24,24 @@ pub fn stddev(data: &[f64], period: usize, nbdev: f64) -> Vec<f64> {
         sum_sq += y * y;
     }
 
-    out[0] = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
+    let var0 = sum_sq * inv_pf - sum * sum * inv_pf2;
+    out[0] = if var0.is_nan() {
+        f64::NAN
+    } else {
+        var0.max(0.0).sqrt() * nbdev
+    };
 
     for i in 1..out_len {
         let yo = data[i - 1];
         let yn = data[i + period - 1];
         sum += yn - yo;
         sum_sq += yn * yn - yo * yo;
-        let v = (sum_sq * inv_pf - sum * sum * inv_pf2).max(0.0).sqrt() * nbdev;
+        let var = sum_sq * inv_pf - sum * sum * inv_pf2;
+        let v = if var.is_nan() {
+            f64::NAN
+        } else {
+            var.max(0.0).sqrt() * nbdev
+        };
         out[i] = v;
     }
 
@@ -47,7 +57,11 @@ mod tests {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let result = stddev(&data, 5, 1.0);
         assert_eq!(result.len(), 1);
-        assert!((result[0] - 2.0_f64.sqrt()).abs() < 1e-10, "got {}", result[0]);
+        assert!(
+            (result[0] - 2.0_f64.sqrt()).abs() < 1e-10,
+            "got {}",
+            result[0]
+        );
     }
 
     #[test]

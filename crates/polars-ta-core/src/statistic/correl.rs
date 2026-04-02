@@ -33,7 +33,11 @@ pub fn correl(real0: &[f64], real1: &[f64], period: usize) -> Vec<f64> {
     let calc = |sx: f64, sy: f64, sxy: f64, sx2: f64, sy2: f64| -> f64 {
         let num = p * sxy - sx * sy;
         let den = ((p * sx2 - sx * sx) * (p * sy2 - sy * sy)).sqrt();
-        if den == 0.0 { 0.0 } else { num / den }
+        if den == 0.0 {
+            0.0
+        } else {
+            num / den
+        }
     };
 
     out.push(calc(sum_x, sum_y, sum_xy, sum_x2, sum_y2));

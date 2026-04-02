@@ -26,18 +26,78 @@ macro_rules! transform_fn {
     };
 }
 
-transform_fn!(acos_series,  math_transform::acos,  "Arc-cosine of each element (radians).");
-transform_fn!(asin_series,  math_transform::asin,  "Arc-sine of each element (radians).");
-transform_fn!(atan_series,  math_transform::atan,  "Arc-tangent of each element (radians).");
-transform_fn!(ceil_series,  math_transform::ceil,  "Ceiling (round toward +∞) of each element.");
-transform_fn!(cos_series,   math_transform::cos,   "Cosine of each element (radians input).");
-transform_fn!(cosh_series,  math_transform::cosh,  "Hyperbolic cosine of each element.");
-transform_fn!(exp_series,   math_transform::exp,   "e raised to the power of each element.");
-transform_fn!(floor_series, math_transform::floor, "Floor (round toward −∞) of each element.");
-transform_fn!(ln_series,    math_transform::ln,    "Natural logarithm of each element.");
-transform_fn!(log10_series, math_transform::log10, "Base-10 logarithm of each element.");
-transform_fn!(sin_series,   math_transform::sin,   "Sine of each element (radians input).");
-transform_fn!(sinh_series,  math_transform::sinh,  "Hyperbolic sine of each element.");
-transform_fn!(sqrt_series,  math_transform::sqrt,  "Square root of each element.");
-transform_fn!(tan_series,   math_transform::tan,   "Tangent of each element (radians input).");
-transform_fn!(tanh_series,  math_transform::tanh,  "Hyperbolic tangent of each element.");
+transform_fn!(
+    acos_series,
+    math_transform::acos,
+    "Arc-cosine of each element (radians)."
+);
+transform_fn!(
+    asin_series,
+    math_transform::asin,
+    "Arc-sine of each element (radians)."
+);
+transform_fn!(
+    atan_series,
+    math_transform::atan,
+    "Arc-tangent of each element (radians)."
+);
+transform_fn!(
+    ceil_series,
+    math_transform::ceil,
+    "Ceiling (round toward +∞) of each element."
+);
+transform_fn!(
+    cos_series,
+    math_transform::cos,
+    "Cosine of each element (radians input)."
+);
+transform_fn!(
+    cosh_series,
+    math_transform::cosh,
+    "Hyperbolic cosine of each element."
+);
+transform_fn!(
+    exp_series,
+    math_transform::exp,
+    "e raised to the power of each element."
+);
+transform_fn!(
+    floor_series,
+    math_transform::floor,
+    "Floor (round toward −∞) of each element."
+);
+transform_fn!(
+    ln_series,
+    math_transform::ln,
+    "Natural logarithm of each element."
+);
+transform_fn!(
+    log10_series,
+    math_transform::log10,
+    "Base-10 logarithm of each element."
+);
+transform_fn!(
+    sin_series,
+    math_transform::sin,
+    "Sine of each element (radians input)."
+);
+transform_fn!(
+    sinh_series,
+    math_transform::sinh,
+    "Hyperbolic sine of each element."
+);
+transform_fn!(
+    sqrt_series,
+    math_transform::sqrt,
+    "Square root of each element."
+);
+transform_fn!(
+    tan_series,
+    math_transform::tan,
+    "Tangent of each element (radians input)."
+);
+transform_fn!(
+    tanh_series,
+    math_transform::tanh,
+    "Hyperbolic tangent of each element."
+);

@@ -62,7 +62,10 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
 
     let n = data.len();
     if n <= LOOKBACK {
-        return MamaOutput { mama: vec![], fama: vec![] };
+        return MamaOutput {
+            mama: vec![],
+            fama: vec![],
+        };
     }
 
     let out_len = n - LOOKBACK;
@@ -70,35 +73,47 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
     let mut out_fama = Vec::with_capacity(out_len);
 
     // ── Hilbert 缓冲区（偶/奇双路） ──────────────────────────────────────
-    let mut det_b_odd  = [0.0f64; 3]; let mut det_b_even  = [0.0f64; 3];
-    let mut q1_b_odd   = [0.0f64; 3]; let mut q1_b_even   = [0.0f64; 3];
-    let mut ji_b_odd   = [0.0f64; 3]; let mut ji_b_even   = [0.0f64; 3];
-    let mut jq_b_odd   = [0.0f64; 3]; let mut jq_b_even   = [0.0f64; 3];
+    let mut det_b_odd = [0.0f64; 3];
+    let mut det_b_even = [0.0f64; 3];
+    let mut q1_b_odd = [0.0f64; 3];
+    let mut q1_b_even = [0.0f64; 3];
+    let mut ji_b_odd = [0.0f64; 3];
+    let mut ji_b_even = [0.0f64; 3];
+    let mut jq_b_odd = [0.0f64; 3];
+    let mut jq_b_even = [0.0f64; 3];
 
-    let mut det_p_odd  = 0.0f64; let mut det_p_even  = 0.0f64;
-    let mut det_pi_odd = 0.0f64; let mut det_pi_even = 0.0f64;
-    let mut q1_p_odd   = 0.0f64; let mut q1_p_even   = 0.0f64;
-    let mut q1_pi_odd  = 0.0f64; let mut q1_pi_even  = 0.0f64;
-    let mut ji_p_odd   = 0.0f64; let mut ji_p_even   = 0.0f64;
-    let mut ji_pi_odd  = 0.0f64; let mut ji_pi_even  = 0.0f64;
-    let mut jq_p_odd   = 0.0f64; let mut jq_p_even   = 0.0f64;
-    let mut jq_pi_odd  = 0.0f64; let mut jq_pi_even  = 0.0f64;
+    let mut det_p_odd = 0.0f64;
+    let mut det_p_even = 0.0f64;
+    let mut det_pi_odd = 0.0f64;
+    let mut det_pi_even = 0.0f64;
+    let mut q1_p_odd = 0.0f64;
+    let mut q1_p_even = 0.0f64;
+    let mut q1_pi_odd = 0.0f64;
+    let mut q1_pi_even = 0.0f64;
+    let mut ji_p_odd = 0.0f64;
+    let mut ji_p_even = 0.0f64;
+    let mut ji_pi_odd = 0.0f64;
+    let mut ji_pi_even = 0.0f64;
+    let mut jq_p_odd = 0.0f64;
+    let mut jq_p_even = 0.0f64;
+    let mut jq_pi_odd = 0.0f64;
+    let mut jq_pi_even = 0.0f64;
 
     let mut hilbert_idx: usize = 0;
 
     // I1 延迟线（偶/奇各一套）
-    let mut i1_odd_prev2  = 0.0f64;
-    let mut i1_odd_prev3  = 0.0f64;
+    let mut i1_odd_prev2 = 0.0f64;
+    let mut i1_odd_prev3 = 0.0f64;
     let mut i1_even_prev2 = 0.0f64;
     let mut i1_even_prev3 = 0.0f64;
 
     let mut prev_i2 = 0.0f64;
     let mut prev_q2 = 0.0f64;
-    let mut re      = 0.0f64;
-    let mut im      = 0.0f64;
-    let mut period  = 0.0f64;
-    let mut mama_v  = 0.0f64;
-    let mut fama_v  = 0.0f64;
+    let mut re = 0.0f64;
+    let mut im = 0.0f64;
+    let mut period = 0.0f64;
+    let mut mama_v = 0.0f64;
+    let mut fama_v = 0.0f64;
     let mut prev_phase = 0.0f64;
 
     // ── WMA 初始化（与 ta-lib C 完全一致） ────────────────────────────────
@@ -106,21 +121,28 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
     let mut trailing_wma_idx: usize = 0;
     let mut today: usize = 0;
 
-    let mut period_wma_sub = data[today]; today += 1;
+    let mut period_wma_sub = data[today];
+    today += 1;
     let mut period_wma_sum = period_wma_sub;
-    period_wma_sub += data[today]; period_wma_sum += data[today] * 2.0; today += 1;
-    period_wma_sub += data[today]; period_wma_sum += data[today] * 3.0; today += 1;
+    period_wma_sub += data[today];
+    period_wma_sum += data[today] * 2.0;
+    today += 1;
+    period_wma_sub += data[today];
+    period_wma_sum += data[today] * 3.0;
+    today += 1;
 
     let mut trailing_wma_value = 0.0f64;
     let mut smoothed = 0.0f64;
 
     // 9 次 WMA 预热（到 today=12）
     for _ in 0..9 {
-        let p = data[today]; today += 1;
+        let p = data[today];
+        today += 1;
         period_wma_sub += p;
         period_wma_sub -= trailing_wma_value;
         period_wma_sum += p * 4.0;
-        trailing_wma_value = data[trailing_wma_idx]; trailing_wma_idx += 1;
+        trailing_wma_value = data[trailing_wma_idx];
+        trailing_wma_idx += 1;
         smoothed = period_wma_sum * 0.1;
         period_wma_sum -= period_wma_sub;
     }
@@ -134,21 +156,52 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
         period_wma_sub += today_value;
         period_wma_sub -= trailing_wma_value;
         period_wma_sum += today_value * 4.0;
-        trailing_wma_value = data[trailing_wma_idx]; trailing_wma_idx += 1;
+        trailing_wma_value = data[trailing_wma_idx];
+        trailing_wma_idx += 1;
         smoothed = period_wma_sum * 0.1;
         period_wma_sum -= period_wma_sub;
 
         let phase;
 
-        if today % 2 == 0 {
+        if today.is_multiple_of(2) {
             // 偶数 bar
-            let detrender = do_hilbert(&mut det_b_even, smoothed,    &mut det_p_even, &mut det_pi_even, adj, hilbert_idx);
-            let q1        = do_hilbert(&mut q1_b_even,  detrender,   &mut q1_p_even,  &mut q1_pi_even,  adj, hilbert_idx);
-            let ji        = do_hilbert(&mut ji_b_even,  i1_even_prev3, &mut ji_p_even, &mut ji_pi_even, adj, hilbert_idx);
-            let jq        = do_hilbert(&mut jq_b_even,  q1,          &mut jq_p_even,  &mut jq_pi_even,  adj, hilbert_idx);
+            let detrender = do_hilbert(
+                &mut det_b_even,
+                smoothed,
+                &mut det_p_even,
+                &mut det_pi_even,
+                adj,
+                hilbert_idx,
+            );
+            let q1 = do_hilbert(
+                &mut q1_b_even,
+                detrender,
+                &mut q1_p_even,
+                &mut q1_pi_even,
+                adj,
+                hilbert_idx,
+            );
+            let ji = do_hilbert(
+                &mut ji_b_even,
+                i1_even_prev3,
+                &mut ji_p_even,
+                &mut ji_pi_even,
+                adj,
+                hilbert_idx,
+            );
+            let jq = do_hilbert(
+                &mut jq_b_even,
+                q1,
+                &mut jq_p_even,
+                &mut jq_pi_even,
+                adj,
+                hilbert_idx,
+            );
 
             hilbert_idx += 1;
-            if hilbert_idx == 3 { hilbert_idx = 0; }
+            if hilbert_idx == 3 {
+                hilbert_idx = 0;
+            }
 
             let q2 = 0.2 * (q1 + ji) + 0.8 * prev_q2;
             let i2 = 0.2 * (i1_even_prev3 - jq) + 0.8 * prev_i2;
@@ -170,10 +223,38 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
             prev_i2 = i2;
         } else {
             // 奇数 bar
-            let detrender = do_hilbert(&mut det_b_odd, smoothed,    &mut det_p_odd, &mut det_pi_odd, adj, hilbert_idx);
-            let q1        = do_hilbert(&mut q1_b_odd,  detrender,   &mut q1_p_odd,  &mut q1_pi_odd,  adj, hilbert_idx);
-            let ji        = do_hilbert(&mut ji_b_odd,  i1_odd_prev3, &mut ji_p_odd,  &mut ji_pi_odd, adj, hilbert_idx);
-            let jq        = do_hilbert(&mut jq_b_odd,  q1,          &mut jq_p_odd,  &mut jq_pi_odd,  adj, hilbert_idx);
+            let detrender = do_hilbert(
+                &mut det_b_odd,
+                smoothed,
+                &mut det_p_odd,
+                &mut det_pi_odd,
+                adj,
+                hilbert_idx,
+            );
+            let q1 = do_hilbert(
+                &mut q1_b_odd,
+                detrender,
+                &mut q1_p_odd,
+                &mut q1_pi_odd,
+                adj,
+                hilbert_idx,
+            );
+            let ji = do_hilbert(
+                &mut ji_b_odd,
+                i1_odd_prev3,
+                &mut ji_p_odd,
+                &mut ji_pi_odd,
+                adj,
+                hilbert_idx,
+            );
+            let jq = do_hilbert(
+                &mut jq_b_odd,
+                q1,
+                &mut jq_p_odd,
+                &mut jq_pi_odd,
+                adj,
+                hilbert_idx,
+            );
 
             let q2 = 0.2 * (q1 + ji) + 0.8 * prev_q2;
             let i2 = 0.2 * (i1_odd_prev3 - jq) + 0.8 * prev_i2;
@@ -198,11 +279,17 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
         // delta phase → alpha
         let mut delta_phase = prev_phase - phase;
         prev_phase = phase;
-        if delta_phase < 1.0 { delta_phase = 1.0; }
+        if delta_phase < 1.0 {
+            delta_phase = 1.0;
+        }
 
         let alpha = if delta_phase > 1.0 {
             let a2 = fast_limit / delta_phase;
-            if a2 < slow_limit { slow_limit } else { a2 }
+            if a2 < slow_limit {
+                slow_limit
+            } else {
+                a2
+            }
         } else {
             fast_limit
         };
@@ -222,16 +309,27 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
             period = 360.0 / ((im / re).atan() * RAD2DEG);
         }
         let tmp2 = 1.5 * prev_period;
-        if period > tmp2 { period = tmp2; }
+        if period > tmp2 {
+            period = tmp2;
+        }
         let tmp2 = 0.67 * prev_period;
-        if period < tmp2 { period = tmp2; }
-        if period < 6.0 { period = 6.0; } else if period > 50.0 { period = 50.0; }
+        if period < tmp2 {
+            period = tmp2;
+        }
+        if period < 6.0 {
+            period = 6.0;
+        } else if period > 50.0 {
+            period = 50.0;
+        }
         period = 0.2 * period + 0.8 * prev_period;
 
         today += 1;
     }
 
-    MamaOutput { mama: out_mama, fama: out_fama }
+    MamaOutput {
+        mama: out_mama,
+        fama: out_fama,
+    }
 }
 
 #[cfg(test)]

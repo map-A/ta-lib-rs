@@ -1,40 +1,12 @@
 //! MAX — Rolling Maximum
 //!
-//! 滑动窗口最大值，使用单调递减双端队列实现 O(n) 复杂度。
-//!
-//! Finds the highest value in each rolling window using an O(n) monotone
-//! deque algorithm. Numerically identical to ta-lib's `TA_MAX`.
-//!
-//! # Algorithm
-//!
-//! Maintains a monotone decreasing deque of indices. For each new element:
-//! 1. Pop expired indices (outside current window) from the front
-//! 2. Pop indices with smaller values from the back (they can never be the max)
-//! 3. Push current index to the back
-//! 4. Front of deque always holds the index of the window maximum
-//!
-//! # Parameters
-//!
-//! - `data`   — input series
-//! - `period` — window length (≥ 1)
-//!
-//! # Output
-//!
-//! - Length = `data.len() - (period - 1)` (lookback = period - 1)
-//! - Returns empty `Vec` when `data.len() < period`
-//!
-//! # Example
-//!
-//! ```rust
-//! use polars_ta_core::math_ops::max;
-//!
-//! let data = vec![3.0, 1.0, 2.0, 5.0, 4.0];
-//! let result = max(&data, 3);
-//! assert_eq!(result.len(), 3);
-//! assert!((result[0] - 3.0).abs() < 1e-10);  // max(3,1,2)
-//! assert!((result[1] - 5.0).abs() < 1e-10);  // max(1,2,5)
-//! assert!((result[2] - 5.0).abs() < 1e-10);  // max(2,5,4)
-//! ```
+//! Exactly replicates ta-lib's `TA_MAX` NaN behavior:
+//! - Uses the conditional-rescan trick for O(1) amortised performance.
+//! - When a rescan is needed (previous max left the window):
+//!   - If oldest is NaN: output NaN (scan seeds with NaN, nothing beats it).
+//!   - If oldest is valid: scan from oldest, skip NaN via `NaN > x = false`.
+//! - When incremental (previous max still in window):
+//!   - Check newest element only; oldest NaN is irrelevant.
 
 pub fn max(data: &[f64], period: usize) -> Vec<f64> {
     let n = data.len();
@@ -42,36 +14,33 @@ pub fn max(data: &[f64], period: usize) -> Vec<f64> {
         return vec![];
     }
     let out_len = n - period + 1;
+    let mut out = vec![0.0_f64; out_len];
 
-    // 幂次方容量的环形缓冲区，用位掩码替代取模
-    let cap = period.next_power_of_two().max(4);
-    let mask = cap - 1;
-    let mut buf = vec![0usize; cap];
-    let mut front = 0usize;
-    let mut back = 0usize;
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
 
-    let mut out = vec![0.0f64; out_len];
+    for i in 0..out_len {
+        let newest = i + period - 1;
 
-    for i in 0..n {
-        // 移除滑出窗口的过期下标
-        if i >= period {
-            let ws = i - period + 1;
-            while front != back && buf[front & mask] < ws {
-                front = front.wrapping_add(1);
+        if highest_idx < i as isize {
+            // Previous max left window — rescan from oldest.
+            // IEEE 754: NaN > anything = false, so NaN seeds stop propagation.
+            highest_idx = i as isize;
+            highest = data[i];
+            for j in (i + 1)..=newest {
+                if data[j] > highest {
+                    highest = data[j];
+                    highest_idx = j as isize;
+                }
+            }
+        } else {
+            // Previous max still in window — only check newest element.
+            if data[newest] > highest {
+                highest = data[newest];
+                highest_idx = newest as isize;
             }
         }
-        // 维护单调递减（移除所有小于当前值的尾部下标）
-        while front != back
-            && data[buf[back.wrapping_sub(1) & mask]] < data[i]
-        {
-            back = back.wrapping_sub(1);
-        }
-        buf[back & mask] = i;
-        back = back.wrapping_add(1);
-
-        if i >= period - 1 {
-            out[i + 1 - period] = data[buf[front & mask]];
-        }
+        out[i] = highest;
     }
     out
 }
@@ -90,5 +59,31 @@ mod tests {
     #[test]
     fn max_boundary_short() {
         assert!(max(&[1.0, 2.0], 3).is_empty());
+    }
+
+    #[test]
+    fn max_nan_oldest_rescan_forces_nan() {
+        // NaN at oldest, previous max has just left → rescan seeds with NaN → NaN output
+        let data = vec![10.0, f64::NAN, 3.0, 2.0];
+        let r = max(&data, 2);
+        // out[0] = max(10, NaN): prev_max_idx=-1 < 0, rescan: seed=10, NaN skipped → 10
+        // out[1] = max(NaN, 3):  prev_max_idx=0 < 1, rescan: seed=NaN, 3 not > NaN → NaN
+        // out[2] = max(3, 2):    prev_max_idx=-1 < 2, rescan: seed=3, 2 not > 3 → 3
+        assert!(!r[0].is_nan(), "r[0]={}", r[0]);
+        assert!(r[1].is_nan(), "r[1]={}", r[1]);
+        assert!(!r[2].is_nan(), "r[2]={}", r[2]);
+    }
+
+    #[test]
+    fn max_nan_oldest_incremental_valid() {
+        // NaN at oldest but prev max is still in window → incremental → valid
+        let data = vec![5.0, f64::NAN, 10.0, 3.0, 2.0];
+        let r = max(&data, 3);
+        // out[0] = max(5, NaN, 10): rescan, seed=5, 10>5 → 10 at idx=2
+        // out[1] = max(NaN, 10, 3): prev_max_idx=2 >= 1 → incremental, 3 not>10 → 10
+        // out[2] = max(10, 3, 2): prev_max_idx=2 >= 2 → incremental, 2 not>10 → 10
+        assert!((r[0] - 10.0).abs() < 1e-10);
+        assert!(!r[1].is_nan());
+        assert!((r[1] - 10.0).abs() < 1e-10);
     }
 }

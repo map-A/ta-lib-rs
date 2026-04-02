@@ -15,10 +15,15 @@ pub fn trix(data: &[f64], period: usize) -> Vec<f64> {
     if e3.len() < 2 {
         return vec![];
     }
-    let out: Vec<f64> = e3.windows(2)
+    let out: Vec<f64> = e3
+        .windows(2)
         .map(|w| {
             let prev = w[0];
-            if prev == 0.0 { 0.0 } else { (w[1] - prev) / prev * 100.0 }
+            if prev == 0.0 {
+                0.0
+            } else {
+                (w[1] - prev) / prev * 100.0
+            }
         })
         .collect();
     out

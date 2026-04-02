@@ -148,7 +148,10 @@ mod tests {
         // [NaN, 3, 4] → sum = NaN + 4 - 1 = NaN → NaN
         assert!(result[1].is_nan());
         // [3, 4, 5] → sum = NaN + 5 - NaN = NaN（NaN 减 NaN 仍为 NaN）
-        assert!(result[2].is_nan(), "ta-lib compatible: NaN permanently contaminates the sum");
+        assert!(
+            result[2].is_nan(),
+            "ta-lib compatible: NaN permanently contaminates the sum"
+        );
     }
 
     #[test]

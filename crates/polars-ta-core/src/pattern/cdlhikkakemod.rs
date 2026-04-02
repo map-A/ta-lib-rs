@@ -12,7 +12,9 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
     let mut out = vec![0.0f64; n];
     // lookback = NEAR_PERIOD + 3 = 5 + 3 = 8
     let lookback = NEAR_PERIOD + 3;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     // Near rolling sum: HL values at position i-2, 5-bar window
     // NearTrailingIdx = startIdx - 3 - NEAR_PERIOD = 0 (when startIdx=8)
@@ -20,7 +22,11 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
     let near_trailing_start: usize = 0; // max(startIdx-3-NEAR_PERIOD, 0)
     let mut near_sum: f64 = (near_trailing_start..lookback.saturating_sub(3))
         .map(|j| {
-            if j < 2 { 0.0 } else { hl_range(high[j-2], low[j-2]) }
+            if j < 2 {
+                0.0
+            } else {
+                hl_range(high[j - 2], low[j - 2])
+            }
         })
         .sum();
     let mut near_trail = near_trailing_start;
@@ -37,8 +43,7 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
         let avg_near = near_sum / NEAR_PERIOD as f64;
 
         // Check for new MODIFIED hikkake setup (overwrites pending confirmation)
-        let is_setup =
-            high[i-2] < high[i-3] && low[i-2] > low[i-3] &&       // bar[i-2] inside bar[i-3]
+        let is_setup = high[i-2] < high[i-3] && low[i-2] > low[i-3] &&       // bar[i-2] inside bar[i-3]
             high[i-1] < high[i-2] && low[i-1] > low[i-2] &&       // bar[i-1] inside bar[i-2]
             (
                 // Bullish: breakout bar goes lower AND 2nd bar (i-2) close near low
@@ -51,7 +56,7 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
             );
 
         if is_setup {
-            pattern_result = if high[i] < high[i-1] { 100 } else { -100 };
+            pattern_result = if high[i] < high[i - 1] { 100 } else { -100 };
             pattern_idx = i;
             if i >= lookback {
                 out[i] = pattern_result as f64;
@@ -59,9 +64,9 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
         } else if i <= pattern_idx + 3 && pattern_result != 0 {
             // Confirmation: close beyond inside bar (pattern_idx-1 = second inside bar)
             let inside_high = high[pattern_idx - 1];
-            let inside_low  = low[pattern_idx - 1];
+            let inside_low = low[pattern_idx - 1];
             let confirmed = (pattern_result > 0 && close[i] > inside_high)
-                         || (pattern_result < 0 && close[i] < inside_low);
+                || (pattern_result < 0 && close[i] < inside_low);
             if confirmed {
                 if i >= lookback {
                     let sign = if pattern_result > 0 { 1 } else { -1 };
@@ -73,8 +78,12 @@ pub fn cdlhikkakemod(_open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
         }
 
         // Update rolling sum: add HL[i-2], remove HL[near_trail-2]
-        let add = hl_range(high[i-2], low[i-2]);
-        let sub = if near_trail >= 2 { hl_range(high[near_trail-2], low[near_trail-2]) } else { 0.0 };
+        let add = hl_range(high[i - 2], low[i - 2]);
+        let sub = if near_trail >= 2 {
+            hl_range(high[near_trail - 2], low[near_trail - 2])
+        } else {
+            0.0
+        };
         near_sum += add - sub;
         near_trail += 1;
     }

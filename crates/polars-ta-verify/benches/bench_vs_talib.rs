@@ -8,12 +8,25 @@
 //! To compare with ta-lib C, run: `scripts/compare_all.sh`
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use polars_ta_core::math_ops::{add, div, max, maxindex, min, minindex, minmax, minmaxindex, mult, sub, sum};
-use polars_ta_core::math_transform::{acos, asin, atan, ceil, cos, cosh, exp, floor, ln, log10, sin, sinh, sqrt, tan, tanh};
-use polars_ta_core::oscillator::{adxr, apo, aroon, aroonosc, bop, cci, cmo, dx, mfi, minus_di, minus_dm, mom, plus_di, plus_dm, ppo, roc, rocp, rocr, rocr100, rsi, stoch, stochf, stochrsi, trix, ultosc, willr};
+use polars_ta_core::math_ops::{
+    add, div, max, maxindex, min, minindex, minmax, minmaxindex, mult, sub, sum,
+};
+use polars_ta_core::math_transform::{
+    acos, asin, atan, ceil, cos, cosh, exp, floor, ln, log10, sin, sinh, sqrt, tan, tanh,
+};
+use polars_ta_core::oscillator::{
+    adxr, apo, aroon, aroonosc, bop, cci, cmo, dx, mfi, minus_di, minus_dm, mom, plus_di, plus_dm,
+    ppo, roc, rocp, rocr, rocr100, rsi, stoch, stochf, stochrsi, trix, ultosc, willr,
+};
 use polars_ta_core::price_transform::{avgprice, medprice, typprice, wclprice};
-use polars_ta_core::statistic::{beta, correl, linearreg, linearreg_angle, linearreg_intercept, linearreg_slope, stddev, tsf, var};
-use polars_ta_core::trend::{adx, bbands, dema, ema, kama, ma, macd, macdext, macdfix, midpoint, midprice, sar, sarext, sma, t3, tema, trima, wma};
+use polars_ta_core::statistic::{
+    beta, correl, linearreg, linearreg_angle, linearreg_intercept, linearreg_slope, stddev, tsf,
+    var,
+};
+use polars_ta_core::trend::{
+    adx, bbands, dema, ema, kama, ma, macd, macdext, macdfix, midpoint, midprice, sar, sarext, sma,
+    t3, tema, trima, wma,
+};
 use polars_ta_core::volatility::{atr, natr, trange};
 use polars_ta_core::volume::{ad, adosc, obv};
 
@@ -117,7 +130,14 @@ fn bench_bbands(c: &mut Criterion) {
         let data = make_data(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| bbands(black_box(&data), black_box(20), black_box(2.0), black_box(2.0)))
+            b.iter(|| {
+                bbands(
+                    black_box(&data),
+                    black_box(20),
+                    black_box(2.0),
+                    black_box(2.0),
+                )
+            })
         });
     }
     group.finish();
@@ -129,7 +149,14 @@ fn bench_sar(c: &mut Criterion) {
         let (high, low, _, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| sar(black_box(&high), black_box(&low), black_box(0.02), black_box(0.2)))
+            b.iter(|| {
+                sar(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(0.02),
+                    black_box(0.2),
+                )
+            })
         });
     }
     group.finish();
@@ -141,7 +168,14 @@ fn bench_adx(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| adx(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                adx(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -167,7 +201,14 @@ fn bench_cci(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| cci(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                cci(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -179,7 +220,14 @@ fn bench_willr(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| willr(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                willr(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -313,7 +361,14 @@ fn bench_atr(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| atr(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                atr(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -325,7 +380,14 @@ fn bench_natr(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| natr(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                natr(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -448,7 +510,14 @@ fn bench_bop(c: &mut Criterion) {
         let open: Vec<f64> = close.iter().map(|&c| c * 1.005).collect();
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| bop(black_box(&open), black_box(&high), black_box(&low), black_box(&close)))
+            b.iter(|| {
+                bop(
+                    black_box(&open),
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                )
+            })
         });
     }
     group.finish();
@@ -484,7 +553,14 @@ fn bench_minus_di(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| minus_di(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                minus_di(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -496,7 +572,14 @@ fn bench_plus_di(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| plus_di(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                plus_di(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -508,7 +591,14 @@ fn bench_dx(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| dx(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                dx(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -520,7 +610,14 @@ fn bench_adxr(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| adxr(black_box(&high), black_box(&low), black_box(&close), black_box(14)))
+            b.iter(|| {
+                adxr(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -720,7 +817,15 @@ fn bench_mfi(c: &mut Criterion) {
         let (high, low, close, volume) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| mfi(black_box(&high), black_box(&low), black_box(&close), black_box(&volume), black_box(14)))
+            b.iter(|| {
+                mfi(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(&volume),
+                    black_box(14),
+                )
+            })
         });
     }
     group.finish();
@@ -870,7 +975,9 @@ fn bench_acos(c: &mut Criterion) {
     let mut group = c.benchmark_group("acos");
     for size in SIZES {
         // 归一化到 [-1, 1] 以产生合法输出
-        let data: Vec<f64> = (0..size).map(|i| (i as f64 / size as f64) * 2.0 - 1.0).collect();
+        let data: Vec<f64> = (0..size)
+            .map(|i| (i as f64 / size as f64) * 2.0 - 1.0)
+            .collect();
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
             b.iter(|| acos(black_box(&data)))
@@ -882,7 +989,9 @@ fn bench_acos(c: &mut Criterion) {
 fn bench_asin(c: &mut Criterion) {
     let mut group = c.benchmark_group("asin");
     for size in SIZES {
-        let data: Vec<f64> = (0..size).map(|i| (i as f64 / size as f64) * 2.0 - 1.0).collect();
+        let data: Vec<f64> = (0..size)
+            .map(|i| (i as f64 / size as f64) * 2.0 - 1.0)
+            .collect();
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
             b.iter(|| asin(black_box(&data)))
@@ -1056,7 +1165,14 @@ fn bench_avgprice(c: &mut Criterion) {
         let open: Vec<f64> = close.iter().map(|&c| c * 0.995).collect();
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| avgprice(black_box(&open), black_box(&high), black_box(&low), black_box(&close)))
+            b.iter(|| {
+                avgprice(
+                    black_box(&open),
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                )
+            })
         });
     }
     group.finish();
@@ -1118,7 +1234,15 @@ fn bench_stochf(c: &mut Criterion) {
         let (high, low, close, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| stochf(black_box(&high), black_box(&low), black_box(&close), black_box(5), black_box(3)))
+            b.iter(|| {
+                stochf(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(&close),
+                    black_box(5),
+                    black_box(3),
+                )
+            })
         });
     }
     group.finish();
@@ -1142,7 +1266,17 @@ fn bench_macdext(c: &mut Criterion) {
         let data = make_data(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| macdext(black_box(&data), black_box(12), black_box(1), black_box(26), black_box(1), black_box(9), black_box(1)))
+            b.iter(|| {
+                macdext(
+                    black_box(&data),
+                    black_box(12),
+                    black_box(1),
+                    black_box(26),
+                    black_box(1),
+                    black_box(9),
+                    black_box(1),
+                )
+            })
         });
     }
     group.finish();
@@ -1166,12 +1300,20 @@ fn bench_sarext(c: &mut Criterion) {
         let (high, low, _, _) = make_ohlcv(size);
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("polars_ta", size), &size, |b, _| {
-            b.iter(|| sarext(
-                black_box(&high), black_box(&low),
-                black_box(0.0), black_box(0.0),
-                black_box(0.02), black_box(0.02), black_box(0.20),
-                black_box(0.02), black_box(0.02), black_box(0.20),
-            ))
+            b.iter(|| {
+                sarext(
+                    black_box(&high),
+                    black_box(&low),
+                    black_box(0.0),
+                    black_box(0.0),
+                    black_box(0.02),
+                    black_box(0.02),
+                    black_box(0.20),
+                    black_box(0.02),
+                    black_box(0.02),
+                    black_box(0.20),
+                )
+            })
         });
     }
     group.finish();

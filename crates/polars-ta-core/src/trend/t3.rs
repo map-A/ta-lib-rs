@@ -37,7 +37,6 @@
 //! - Length = `data.len() - 6 * (period - 1)`
 //! - Returns an empty `Vec` when `data.len() <= 6 * (period - 1)`
 
-
 /// T3 Moving Average.
 ///
 /// See [module documentation](self) for full details.
@@ -100,7 +99,7 @@ pub fn t3(data: &[f64], period: usize, vf: f64) -> Vec<f64> {
     out[0] = c1 * e[5] + c2 * e[4] + c3 * e[3] + c4 * e[2];
 
     for (i, &x) in data[lookback + 1..].iter().enumerate() {
-        e[0] = x    * k + e[0] * km1;
+        e[0] = x * k + e[0] * km1;
         e[1] = e[0] * k + e[1] * km1;
         e[2] = e[1] * k + e[2] * km1;
         e[3] = e[2] * k + e[3] * km1;

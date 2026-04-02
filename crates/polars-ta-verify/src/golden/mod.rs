@@ -94,10 +94,13 @@ impl GoldenFile {
 
     /// Get a named output array by key (e.g. `"values"`, `"macd"`, `"signal"`).
     pub fn get_output_values(&self, key: &str) -> Result<&[Option<f64>], String> {
-        self.output
-            .get(key)
-            .map(|v| v.as_slice())
-            .ok_or_else(|| format!("output key '{}' not found in golden file; available: {:?}", key, self.output.keys().collect::<Vec<_>>()))
+        self.output.get(key).map(|v| v.as_slice()).ok_or_else(|| {
+            format!(
+                "output key '{}' not found in golden file; available: {:?}",
+                key,
+                self.output.keys().collect::<Vec<_>>()
+            )
+        })
     }
 }
 
@@ -132,11 +135,7 @@ pub fn assert_close(actual: &[f64], golden: &[Option<f64>], epsilon: f64, label:
         .collect();
 
     // 只取 actual 中有效值（跳过 NaN 和 Inf，与 golden 中的 null 对应）
-    let valid_actual: Vec<f64> = actual
-        .iter()
-        .copied()
-        .filter(|v| v.is_finite())
-        .collect();
+    let valid_actual: Vec<f64> = actual.iter().copied().filter(|v| v.is_finite()).collect();
 
     assert_eq!(
         valid_actual.len(),
@@ -189,11 +188,7 @@ pub fn assert_close_relative(
         .filter_map(|(i, v)| v.map(|f| (i, f)))
         .collect();
 
-    let valid_actual: Vec<f64> = actual
-        .iter()
-        .copied()
-        .filter(|v| v.is_finite())
-        .collect();
+    let valid_actual: Vec<f64> = actual.iter().copied().filter(|v| v.is_finite()).collect();
 
     assert_eq!(
         valid_actual.len(),
@@ -208,7 +203,11 @@ pub fn assert_close_relative(
     let mut failures = vec![];
     for (actual_val, (golden_idx, expected)) in valid_actual.iter().zip(valid_golden.iter()) {
         let diff = (actual_val - expected).abs();
-        let rel_diff = if expected.abs() > 0.0 { diff / expected.abs() } else { diff };
+        let rel_diff = if expected.abs() > 0.0 {
+            diff / expected.abs()
+        } else {
+            diff
+        };
         if diff > abs_epsilon && rel_diff > rel_epsilon {
             failures.push(format!(
                 "  golden_index={}: actual={:.15e}, expected={:.15e}, abs_diff={:.2e}, rel_diff={:.2e}",
@@ -241,7 +240,12 @@ pub struct GoldenTestResult {
 }
 
 /// Like [`assert_close`] but returns a [`GoldenTestResult`] instead of panicking.
-pub fn check_close(actual: &[f64], golden: &[Option<f64>], epsilon: f64, label: &str) -> GoldenTestResult {
+pub fn check_close(
+    actual: &[f64],
+    golden: &[Option<f64>],
+    epsilon: f64,
+    label: &str,
+) -> GoldenTestResult {
     let valid_golden: Vec<(usize, f64)> = golden
         .iter()
         .enumerate()

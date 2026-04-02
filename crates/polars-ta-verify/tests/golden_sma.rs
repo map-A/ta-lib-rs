@@ -26,18 +26,27 @@ fn golden_path(filename: &str) -> PathBuf {
 fn run_sma_golden(filename: &str, period: usize, epsilon: f64) {
     let path = golden_path(filename);
     if !path.exists() {
-        println!("SKIP: golden file not found: {} (run scripts/generate_golden.py first)", filename);
+        println!(
+            "SKIP: golden file not found: {} (run scripts/generate_golden.py first)",
+            filename
+        );
         return;
     }
-    let golden = load_golden_file(&path)
-        .unwrap_or_else(|e| panic!("Failed to load {}: {}", filename, e));
+    let golden =
+        load_golden_file(&path).unwrap_or_else(|e| panic!("Failed to load {}: {}", filename, e));
 
-    let input = golden.close_input()
+    let input = golden
+        .close_input()
         .unwrap_or_else(|e| panic!("Failed to parse input from {}: {}", filename, e));
 
     let actual = sma(&input, period);
     let label = format!("sma(period={})/{}", period, golden.meta.dataset);
-    assert_close(&actual, golden.get_output_values("values").unwrap(), epsilon, &label);
+    assert_close(
+        &actual,
+        golden.get_output_values("values").unwrap(),
+        epsilon,
+        &label,
+    );
 }
 
 #[test]
@@ -55,7 +64,11 @@ fn sma_period20_boundary_short() {
     // 输入长度 < period → 应返回空 Vec
     let data = vec![1.0f64; 19]; // period=20, lookback=19, need 20 for 1 output
     let result = sma(&data, 20);
-    assert!(result.is_empty(), "输入不足时应返回空 Vec，got len={}", result.len());
+    assert!(
+        result.is_empty(),
+        "输入不足时应返回空 Vec，got len={}",
+        result.len()
+    );
 }
 
 #[test]

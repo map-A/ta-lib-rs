@@ -67,15 +67,15 @@ pub(crate) fn ma_lookback(period: usize, matype: usize) -> usize {
         return 0;
     }
     match matype {
-        0 => period - 1, // SMA
-        1 => period - 1, // EMA
-        2 => period - 1, // WMA
+        0 => period - 1,       // SMA
+        1 => period - 1,       // EMA
+        2 => period - 1,       // WMA
         3 => 2 * (period - 1), // DEMA
         4 => 3 * (period - 1), // TEMA
-        5 => period - 1, // TRIMA
-        6 => period,     // KAMA: outputs n - period elements
+        5 => period - 1,       // TRIMA
+        6 => period,           // KAMA: outputs n - period elements
         8 => 6 * (period - 1), // T3
-        _ => period - 1, // default EMA
+        _ => period - 1,       // default EMA
     }
 }
 

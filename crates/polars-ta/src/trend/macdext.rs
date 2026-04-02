@@ -2,7 +2,11 @@ use polars_core::prelude::*;
 use polars_ta_core::trend::macdext as macdext_core;
 
 fn series_to_f64(s: &Series) -> PolarsResult<Vec<f64>> {
-    Ok(s.cast(&DataType::Float64)?.f64()?.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+    Ok(s.cast(&DataType::Float64)?
+        .f64()?
+        .into_iter()
+        .map(|v| v.unwrap_or(f64::NAN))
+        .collect())
 }
 
 pub struct MacdExtSeriesOutput {
@@ -25,10 +29,18 @@ pub fn macdext_series(
     signal_matype: usize,
 ) -> PolarsResult<MacdExtSeriesOutput> {
     let data = series_to_f64(close)?;
-    let out = macdext_core(&data, fast_period, fast_matype, slow_period, slow_matype, signal_period, signal_matype);
+    let out = macdext_core(
+        &data,
+        fast_period,
+        fast_matype,
+        slow_period,
+        slow_matype,
+        signal_period,
+        signal_matype,
+    );
     Ok(MacdExtSeriesOutput {
-        macd:   Float64Chunked::from_vec("macdext".into(),        out.macd).into_series(),
+        macd: Float64Chunked::from_vec("macdext".into(), out.macd).into_series(),
         signal: Float64Chunked::from_vec("macdext_signal".into(), out.signal).into_series(),
-        hist:   Float64Chunked::from_vec("macdext_hist".into(),   out.hist).into_series(),
+        hist: Float64Chunked::from_vec("macdext_hist".into(), out.hist).into_series(),
     })
 }

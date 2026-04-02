@@ -52,7 +52,10 @@ pub struct AroonOutput {
 ///
 /// See [module documentation](self) for full details.
 pub fn aroon(high: &[f64], low: &[f64], period: usize) -> AroonOutput {
-    let empty = AroonOutput { aroon_up: vec![], aroon_down: vec![] };
+    let empty = AroonOutput {
+        aroon_up: vec![],
+        aroon_down: vec![],
+    };
     let n = high.len();
     if period == 0 || n <= period || low.len() != n {
         return empty;
@@ -61,65 +64,55 @@ pub fn aroon(high: &[f64], low: &[f64], period: usize) -> AroonOutput {
     let out_len = n - period;
     let inv_period = 100.0 / period as f64;
 
-    // Power-of-2 ring buffer for O(1) amortized push/pop without modulo cost
-    let cap = (period + 2).next_power_of_two();
-    let mask = cap - 1;
-    let mut max_buf = vec![0usize; cap];
-    let mut min_buf = vec![0usize; cap];
-    let mut max_f = 0usize;
-    let mut max_b = 0usize; // front..back (mod cap), empty when max_f == max_b
-    let mut min_f = 0usize;
-    let mut min_b = 0usize;
-
-    let mut aroon_up   = vec![0.0f64; out_len];
+    let mut aroon_up = vec![0.0f64; out_len];
     let mut aroon_down = vec![0.0f64; out_len];
 
-    for i in 0..n {
-        let hi = high[i];
-        let lo = low[i];
+    // ta-lib 条件重扫算法（NaN 初始化）
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
+    let mut lowest = f64::NAN;
+    let mut lowest_idx: isize = -1;
 
-        while max_f != max_b {
-            let back_idx = max_buf[(max_b.wrapping_sub(1)) & mask];
-            if high[back_idx] <= hi {
-                max_b = max_b.wrapping_sub(1);
-            } else {
-                break;
+    for i in 0..out_len {
+        let trail = i as isize;
+        let newest = i + period;
+
+        if highest_idx < trail {
+            highest = high[i];
+            highest_idx = trail;
+            for j in (i + 1)..=newest {
+                if high[j] >= highest {
+                    highest = high[j];
+                    highest_idx = j as isize;
+                }
             }
+        } else if high[newest] >= highest {
+            highest = high[newest];
+            highest_idx = newest as isize;
         }
-        max_buf[max_b & mask] = i;
-        max_b = max_b.wrapping_add(1);
 
-        while min_f != min_b {
-            let back_idx = min_buf[(min_b.wrapping_sub(1)) & mask];
-            if low[back_idx] >= lo {
-                min_b = min_b.wrapping_sub(1);
-            } else {
-                break;
+        if lowest_idx < trail {
+            lowest = low[i];
+            lowest_idx = trail;
+            for j in (i + 1)..=newest {
+                if low[j] <= lowest {
+                    lowest = low[j];
+                    lowest_idx = j as isize;
+                }
             }
+        } else if low[newest] <= lowest {
+            lowest = low[newest];
+            lowest_idx = newest as isize;
         }
-        min_buf[min_b & mask] = i;
-        min_b = min_b.wrapping_add(1);
 
-        if i >= period {
-            let window_start = i - period;
-            while max_f != max_b && max_buf[max_f & mask] < window_start {
-                max_f = max_f.wrapping_add(1);
-            }
-            while min_f != min_b && min_buf[min_f & mask] < window_start {
-                min_f = min_f.wrapping_add(1);
-            }
-
-            let out_i = i - period;
-            let hh_idx = max_buf[max_f & mask];
-            let ll_idx = min_buf[min_f & mask];
-            let bars_since_hh = i - hh_idx;
-            let bars_since_ll = i - ll_idx;
-            aroon_up[out_i] = (period - bars_since_hh) as f64 * inv_period;
-            aroon_down[out_i] = (period - bars_since_ll) as f64 * inv_period;
-        }
+        aroon_up[i] = (period as isize - (newest as isize - highest_idx)) as f64 * inv_period;
+        aroon_down[i] = (period as isize - (newest as isize - lowest_idx)) as f64 * inv_period;
     }
 
-    AroonOutput { aroon_up, aroon_down }
+    AroonOutput {
+        aroon_up,
+        aroon_down,
+    }
 }
 
 #[cfg(test)]
@@ -163,8 +156,12 @@ mod tests {
     #[test]
     fn aroon_range() {
         let n = 30_usize;
-        let high: Vec<f64> = (0..n).map(|i| (i as f64 * 0.3).sin() * 5.0 + 50.0).collect();
-        let low:  Vec<f64> = (0..n).map(|i| (i as f64 * 0.3).sin() * 5.0 + 48.0).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.3).sin() * 5.0 + 50.0)
+            .collect();
+        let low: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.3).sin() * 5.0 + 48.0)
+            .collect();
         let res = aroon(&high, &low, 14);
         for v in &res.aroon_up {
             assert!(*v >= 0.0 && *v <= 100.0, "aroon_up out of range: {v}");
@@ -179,7 +176,7 @@ mod tests {
         // Monotonically increasing highs → highest high is always most recent → aroon_up = 100
         let n = 20_usize;
         let high: Vec<f64> = (0..n).map(|i| i as f64).collect();
-        let low:  Vec<f64> = (0..n).map(|i| i as f64 - 1.0).collect();
+        let low: Vec<f64> = (0..n).map(|i| i as f64 - 1.0).collect();
         let res = aroon(&high, &low, 14);
         assert!(!res.aroon_up.is_empty());
         for v in &res.aroon_up {
@@ -192,7 +189,7 @@ mod tests {
         // Monotonically decreasing lows → lowest low is always most recent → aroon_down = 100
         let n = 20_usize;
         let high: Vec<f64> = (0..n).map(|i| 100.0 - i as f64 + 1.0).collect();
-        let low:  Vec<f64> = (0..n).map(|i| 100.0 - i as f64).collect();
+        let low: Vec<f64> = (0..n).map(|i| 100.0 - i as f64).collect();
         let res = aroon(&high, &low, 14);
         assert!(!res.aroon_down.is_empty());
         for v in &res.aroon_down {

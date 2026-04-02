@@ -63,7 +63,10 @@ pub fn stochf(
     fastk_period: usize,
     fastd_period: usize,
 ) -> StochFOutput {
-    let empty = StochFOutput { fastk: vec![], fastd: vec![] };
+    let empty = StochFOutput {
+        fastk: vec![],
+        fastd: vec![],
+    };
 
     let n = close.len();
     if fastk_period == 0 || fastd_period == 0 {
@@ -79,21 +82,57 @@ pub fn stochf(
         return empty;
     }
 
-    // Step 1: 计算原始 fastK，长度 = n - (fastk_period - 1)
+    // 使用条件重扫算法计算 rawFastK（与 ta-lib 完全一致）
     let rawk_len = n - (fastk_period - 1);
     let mut raw_fastk = Vec::with_capacity(rawk_len);
+
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
+    let mut lowest = f64::NAN;
+    let mut lowest_idx: isize = -1;
+
     for i in (fastk_period - 1)..n {
-        let start = i + 1 - fastk_period;
-        let mut hh = high[start];
-        let mut ll = low[start];
-        for j in (start + 1)..=i {
-            if high[j] > hh { hh = high[j]; }
-            if low[j] < ll { ll = low[j]; }
+        let trail = (i + 1 - fastk_period) as isize;
+
+        if highest_idx < trail {
+            let t = trail as usize;
+            highest = high[t];
+            highest_idx = trail;
+            for j in (t + 1)..=i {
+                if high[j] > highest {
+                    highest = high[j];
+                    highest_idx = j as isize;
+                }
+            }
+        } else if high[i] > highest {
+            highest = high[i];
+            highest_idx = i as isize;
         }
-        let fk = if (hh - ll).abs() < f64::EPSILON {
-            0.0
+
+        if lowest_idx < trail {
+            let t = trail as usize;
+            lowest = low[t];
+            lowest_idx = trail;
+            for j in (t + 1)..=i {
+                if low[j] < lowest {
+                    lowest = low[j];
+                    lowest_idx = j as isize;
+                }
+            }
+        } else if low[i] < lowest {
+            lowest = low[i];
+            lowest_idx = i as isize;
+        }
+
+        let fk = if close[i].is_nan() || highest.is_nan() || lowest.is_nan() {
+            f64::NAN
         } else {
-            (close[i] - ll) / (hh - ll) * 100.0
+            let diff = highest - lowest;
+            if diff.abs() < f64::EPSILON {
+                0.0
+            } else {
+                (close[i] - lowest) / diff * 100.0
+            }
         };
         raw_fastk.push(fk);
     }
@@ -170,8 +209,12 @@ mod tests {
     #[test]
     fn stochf_range() {
         let n = 100_usize;
-        let high: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0 + 1.0).collect();
-        let low: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0 - 1.0).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| (i as f64).sin() * 10.0 + 50.0 + 1.0)
+            .collect();
+        let low: Vec<f64> = (0..n)
+            .map(|i| (i as f64).sin() * 10.0 + 50.0 - 1.0)
+            .collect();
         let close: Vec<f64> = (0..n).map(|i| (i as f64).sin() * 10.0 + 50.0).collect();
         let res = stochf(&high, &low, &close, 5, 3);
         for k in &res.fastk {

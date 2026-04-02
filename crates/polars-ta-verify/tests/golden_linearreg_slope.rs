@@ -5,8 +5,13 @@ use std::path::PathBuf;
 
 fn golden_path(filename: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().parent().unwrap()
-        .join("tests").join("golden").join(filename)
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("tests")
+        .join("golden")
+        .join(filename)
 }
 
 fn run_linearreg_slope_golden(filename: &str, period: usize, epsilon: f64) {
@@ -15,37 +20,59 @@ fn run_linearreg_slope_golden(filename: &str, period: usize, epsilon: f64) {
         println!("SKIP: golden file not found: {}", filename);
         return;
     }
-    let golden = load_golden_file(&path)
-        .unwrap_or_else(|e| panic!("Failed to load {}: {}", filename, e));
-    let input = golden.close_input()
+    let golden =
+        load_golden_file(&path).unwrap_or_else(|e| panic!("Failed to load {}: {}", filename, e));
+    let input = golden
+        .close_input()
         .unwrap_or_else(|e| panic!("Failed to parse input: {}", e));
     let actual = linearreg_slope(&input, period);
     let label = format!("linearreg_slope(period={})/{}", period, golden.meta.dataset);
-    assert_close(&actual, golden.get_output_values("values").unwrap(), epsilon, &label);
+    assert_close(
+        &actual,
+        golden.get_output_values("values").unwrap(),
+        epsilon,
+        &label,
+    );
 }
 
 #[test]
-fn linearreg_slope_period14_normal_1000() { run_linearreg_slope_golden("linearreg_slope_period14_normal_1000.json", 14, 1e-8); }
+fn linearreg_slope_period14_normal_1000() {
+    run_linearreg_slope_golden("linearreg_slope_period14_normal_1000.json", 14, 1e-8);
+}
 
 #[test]
-fn linearreg_slope_period14_boundary_exact() { run_linearreg_slope_golden("linearreg_slope_period14_boundary_exact.json", 14, 1e-8); }
+fn linearreg_slope_period14_boundary_exact() {
+    run_linearreg_slope_golden("linearreg_slope_period14_boundary_exact.json", 14, 1e-8);
+}
 
 #[test]
 fn linearreg_slope_period14_boundary_short() {
     let data = vec![1.0f64; 13];
     let result = linearreg_slope(&data, 14);
-    assert!(result.is_empty(), "输入不足时应返回空 Vec，got len={}", result.len());
+    assert!(
+        result.is_empty(),
+        "输入不足时应返回空 Vec，got len={}",
+        result.len()
+    );
 }
 
 #[test]
 #[ignore = "NaN 传播差异: Rust 实现对含 NaN 窗口停止后续计算，ta-lib 跳过 NaN 继续"]
-fn linearreg_slope_period14_with_nan() { run_linearreg_slope_golden("linearreg_slope_period14_with_nan_5pct.json", 14, 1e-8); }
+fn linearreg_slope_period14_with_nan() {
+    run_linearreg_slope_golden("linearreg_slope_period14_with_nan_5pct.json", 14, 1e-8);
+}
 
 #[test]
-fn linearreg_slope_period14_all_same_value() { run_linearreg_slope_golden("linearreg_slope_period14_all_same_value.json", 14, 1e-8); }
+fn linearreg_slope_period14_all_same_value() {
+    run_linearreg_slope_golden("linearreg_slope_period14_all_same_value.json", 14, 1e-8);
+}
 
 #[test]
-fn linearreg_slope_period14_real_btcusdt() { run_linearreg_slope_golden("linearreg_slope_period14_real_btcusdt_1d.json", 14, 1e-8); }
+fn linearreg_slope_period14_real_btcusdt() {
+    run_linearreg_slope_golden("linearreg_slope_period14_real_btcusdt_1d.json", 14, 1e-8);
+}
 
 #[test]
-fn linearreg_slope_period14_real_flat_period() { run_linearreg_slope_golden("linearreg_slope_period14_real_flat_period.json", 14, 1e-8); }
+fn linearreg_slope_period14_real_flat_period() {
+    run_linearreg_slope_golden("linearreg_slope_period14_real_flat_period.json", 14, 1e-8);
+}

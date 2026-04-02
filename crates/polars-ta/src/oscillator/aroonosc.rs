@@ -2,7 +2,11 @@ use polars_core::prelude::*;
 use polars_ta_core::oscillator::aroonosc as aroonosc_core;
 
 fn series_to_f64(s: &Series) -> PolarsResult<Vec<f64>> {
-    Ok(s.cast(&DataType::Float64)?.f64()?.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+    Ok(s.cast(&DataType::Float64)?
+        .f64()?
+        .into_iter()
+        .map(|v| v.unwrap_or(f64::NAN))
+        .collect())
 }
 
 /// Aroon Oscillator (Aroon Up − Aroon Down). Output length = `n - period`.

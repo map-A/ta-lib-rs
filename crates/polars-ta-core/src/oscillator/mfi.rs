@@ -119,7 +119,11 @@ fn compute_mfi(pos_sum: f64, neg_sum: f64) -> f64 {
     // 代数等价：100 - 100/(1+pos/neg) = 100*pos/(pos+neg)
     // 单次除法；total=0 时返回 0（覆盖 pos=0 和 neg=0 双零情况）
     let total = pos_sum + neg_sum;
-    if total == 0.0 { 0.0 } else { 100.0 * pos_sum / total }
+    if total == 0.0 {
+        0.0
+    } else {
+        100.0 * pos_sum / total
+    }
 }
 
 #[cfg(test)]
@@ -195,9 +199,15 @@ mod tests {
     #[test]
     fn mfi_range() {
         let n = 30_usize;
-        let h: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).sin() * 5.0 + 52.0).collect();
-        let l: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).sin() * 5.0 + 48.0).collect();
-        let c: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).sin() * 5.0 + 50.0).collect();
+        let h: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.4).sin() * 5.0 + 52.0)
+            .collect();
+        let l: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.4).sin() * 5.0 + 48.0)
+            .collect();
+        let c: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.4).sin() * 5.0 + 50.0)
+            .collect();
         let v = vec![1000.0_f64; n];
         let result = mfi(&h, &l, &c, &v, 14);
         for val in &result {

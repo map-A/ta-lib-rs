@@ -142,9 +142,9 @@ mod tests {
 
     #[test]
     fn cci_basic() {
-        let high  = vec![10.0, 11.0, 12.0, 11.0, 10.0];
-        let low   = vec![ 8.0,  9.0, 10.0,  9.0,  8.0];
-        let close = vec![ 9.0, 10.0, 11.0, 10.0,  9.0];
+        let high = vec![10.0, 11.0, 12.0, 11.0, 10.0];
+        let low = vec![8.0, 9.0, 10.0, 9.0, 8.0];
+        let close = vec![9.0, 10.0, 11.0, 10.0, 9.0];
         let result = cci(&high, &low, &close, 3);
         assert_eq!(result.len(), 3);
         // Values should be finite

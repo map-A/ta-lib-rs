@@ -57,7 +57,11 @@ pub fn macdext(
     signal_period: usize,
     signal_matype: usize,
 ) -> MacdOutput {
-    let empty = MacdOutput { macd: vec![], signal: vec![], hist: vec![] };
+    let empty = MacdOutput {
+        macd: vec![],
+        signal: vec![],
+        hist: vec![],
+    };
 
     if fast_period == 0 || slow_period == 0 || signal_period == 0 {
         return empty;
@@ -123,7 +127,11 @@ pub fn macdext(
         .map(|(&m, &s)| m - s)
         .collect();
 
-    MacdOutput { macd: macd_trimmed, signal, hist }
+    MacdOutput {
+        macd: macd_trimmed,
+        signal,
+        hist,
+    }
 }
 
 #[cfg(test)]

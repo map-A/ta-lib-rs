@@ -67,11 +67,29 @@ pub fn cos(data: &[f64]) -> Vec<f64> {
 }
 
 pub fn cosh(data: &[f64]) -> Vec<f64> {
-    data.iter().map(|&x| { let r = x.cosh(); if r.is_finite() { r } else { f64::NAN } }).collect()
+    data.iter()
+        .map(|&x| {
+            let r = x.cosh();
+            if r.is_finite() {
+                r
+            } else {
+                f64::NAN
+            }
+        })
+        .collect()
 }
 
 pub fn exp(data: &[f64]) -> Vec<f64> {
-    data.iter().map(|&x| { let r = x.exp(); if r.is_finite() { r } else { f64::NAN } }).collect()
+    data.iter()
+        .map(|&x| {
+            let r = x.exp();
+            if r.is_finite() {
+                r
+            } else {
+                f64::NAN
+            }
+        })
+        .collect()
 }
 
 pub fn floor(data: &[f64]) -> Vec<f64> {
@@ -91,7 +109,16 @@ pub fn sin(data: &[f64]) -> Vec<f64> {
 }
 
 pub fn sinh(data: &[f64]) -> Vec<f64> {
-    data.iter().map(|&x| { let r = x.sinh(); if r.is_finite() { r } else { f64::NAN } }).collect()
+    data.iter()
+        .map(|&x| {
+            let r = x.sinh();
+            if r.is_finite() {
+                r
+            } else {
+                f64::NAN
+            }
+        })
+        .collect()
 }
 
 pub fn sqrt(data: &[f64]) -> Vec<f64> {

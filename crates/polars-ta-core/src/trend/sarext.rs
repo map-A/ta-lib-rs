@@ -68,20 +68,40 @@ pub fn sarext(
 
     let (mut ep, mut sar) = if is_long {
         let initial_sar = if start_value != 0.0 { start_value } else { low[0] };
-        (high[1], initial_sar)
+        if high[1].is_nan() {
+            is_long = false;
+            let ep_short = low[1];
+            let sar_short = if start_value != 0.0 { start_value } else { high[0] };
+            (ep_short, sar_short)
+        } else {
+            (high[1], initial_sar)
+        }
     } else {
         let initial_sar = if start_value != 0.0 { start_value } else { high[0] };
-        (low[1], initial_sar)
+        if low[1].is_nan() {
+            is_long = true;
+            let ep_long = high[1];
+            let sar_long = if start_value != 0.0 { start_value } else { low[0] };
+            (ep_long, sar_long)
+        } else {
+            (low[1], initial_sar)
+        }
     };
 
-    let mut acc = if is_long { accel_init_long } else { accel_init_short };
+    let mut acc = if is_long {
+        accel_init_long
+    } else {
+        accel_init_short
+    };
 
     for i in 1..n {
         let raw_sar = sar + acc * (ep - sar);
 
         let new_sar = if is_long {
             let mut clamped = raw_sar.min(low[i - 1]);
-            if i >= 3 { clamped = clamped.min(low[i - 2]); }
+            if i >= 3 {
+                clamped = clamped.min(low[i - 2]);
+            }
 
             if low[i] <= clamped {
                 // 翻转到空头
@@ -90,7 +110,9 @@ pub fn sarext(
                 ep = low[i];
                 acc = accel_init_short;
                 let mut s = old_ep.max(high[i - 1]);
-                if i >= 3 { s = s.max(high[i - 2]); }
+                if i >= 3 {
+                    s = s.max(high[i - 2]);
+                }
                 s + offset_on_reverse
             } else {
                 if high[i] > ep {
@@ -101,7 +123,9 @@ pub fn sarext(
             }
         } else {
             let mut clamped = raw_sar.max(high[i - 1]);
-            if i >= 3 { clamped = clamped.max(high[i - 2]); }
+            if i >= 3 {
+                clamped = clamped.max(high[i - 2]);
+            }
 
             if high[i] >= clamped {
                 // 翻转到多头
@@ -110,7 +134,9 @@ pub fn sarext(
                 ep = high[i];
                 acc = accel_init_long;
                 let mut s = old_ep.min(low[i - 1]);
-                if i >= 3 { s = s.min(low[i - 2]); }
+                if i >= 3 {
+                    s = s.min(low[i - 2]);
+                }
                 s - offset_on_reverse
             } else {
                 if low[i] < ep {
@@ -163,7 +189,9 @@ mod tests {
         // SAREXT(default) == SAR(0.02, 0.20) in absolute value;
         // SAREXT negates the output for short positions while SAR does not.
         let n = 50;
-        let high: Vec<f64> = (0..n).map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1)
+            .collect();
         let low: Vec<f64> = high.iter().map(|&h| h - 2.0).collect();
         let ext = sarext_default(&high, &low);
         let std = sar(&high, &low, 0.02, 0.20);
@@ -176,7 +204,9 @@ mod tests {
     #[test]
     fn sarext_all_finite() {
         let n = 50;
-        let high: Vec<f64> = (0..n).map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1)
+            .collect();
         let low: Vec<f64> = high.iter().map(|&h| h - 2.0).collect();
         for &v in &sarext_default(&high, &low) {
             assert!(v.is_finite());
@@ -187,7 +217,9 @@ mod tests {
     fn sarext_separate_accel() {
         // Different accel for long/short should still produce finite results
         let n = 50;
-        let high: Vec<f64> = (0..n).map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| 100.0 + (i as f64).sin() * 5.0 + i as f64 * 0.1)
+            .collect();
         let low: Vec<f64> = high.iter().map(|&h| h - 2.0).collect();
         let res = sarext(&high, &low, 0.0, 0.0, 0.01, 0.01, 0.10, 0.03, 0.03, 0.30);
         assert_eq!(res.len(), n - 1);

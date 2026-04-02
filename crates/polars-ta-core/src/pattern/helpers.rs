@@ -11,7 +11,13 @@ pub(crate) struct RollingAvg {
 
 impl RollingAvg {
     pub fn new(period: usize) -> Self {
-        Self { period, buf: vec![0.0; period], head: 0, sum: 0.0, count: 0 }
+        Self {
+            period,
+            buf: vec![0.0; period],
+            head: 0,
+            sum: 0.0,
+            count: 0,
+        }
     }
 
     pub fn push(&mut self, val: f64) {
@@ -27,15 +33,38 @@ impl RollingAvg {
     }
 
     pub fn avg(&self) -> f64 {
-        if self.is_ready() { self.sum / self.period as f64 } else { f64::NAN }
+        if self.is_ready() {
+            self.sum / self.period as f64
+        } else {
+            f64::NAN
+        }
     }
 }
 
-#[inline] pub(crate) fn real_body(o: f64, c: f64) -> f64 { (c - o).abs() }
-#[inline] pub(crate) fn candle_color(o: f64, c: f64) -> i32 { if c >= o { 1 } else { -1 } }
-#[inline] pub(crate) fn upper_shadow(o: f64, h: f64, c: f64) -> f64 { h - o.max(c) }
-#[inline] pub(crate) fn lower_shadow(o: f64, l: f64, c: f64) -> f64 { o.min(c) - l }
-#[inline] pub(crate) fn hl_range(h: f64, l: f64) -> f64 { h - l }
+#[inline]
+pub(crate) fn real_body(o: f64, c: f64) -> f64 {
+    (c - o).abs()
+}
+#[inline]
+pub(crate) fn candle_color(o: f64, c: f64) -> i32 {
+    if c >= o {
+        1
+    } else {
+        -1
+    }
+}
+#[inline]
+pub(crate) fn upper_shadow(o: f64, h: f64, c: f64) -> f64 {
+    h - o.max(c)
+}
+#[inline]
+pub(crate) fn lower_shadow(o: f64, l: f64, c: f64) -> f64 {
+    o.min(c) - l
+}
+#[inline]
+pub(crate) fn hl_range(h: f64, l: f64) -> f64 {
+    h - l
+}
 
 /// ta-lib default candle setting periods
 pub(crate) const BODY_LONG_PERIOD: usize = 10;

@@ -91,9 +91,9 @@ mod tests {
 
     #[test]
     fn trange_basic() {
-        let high  = vec![10.0, 12.0, 11.0];
-        let low   = vec![8.0,  9.0,  7.0];
-        let close = vec![9.0,  11.0, 10.0];
+        let high = vec![10.0, 12.0, 11.0];
+        let low = vec![8.0, 9.0, 7.0];
+        let close = vec![9.0, 11.0, 10.0];
         let result = trange(&high, &low, &close);
         assert_eq!(result.len(), 2);
         // i=1: max(12-9=3, |12-9|=3, |9-9|=0) = 3
@@ -105,8 +105,8 @@ mod tests {
     #[test]
     fn trange_no_gap() {
         // 无跳空：TR = high - low
-        let high  = vec![10.0, 12.0];
-        let low   = vec![8.0,  9.0];
+        let high = vec![10.0, 12.0];
+        let low = vec![8.0, 9.0];
         let close = vec![11.0, 10.0]; // close[0] between high[1]/low[1]
         let result = trange(&high, &low, &close);
         assert_eq!(result.len(), 1);
@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn trange_gap_up() {
         // 跳空向上：close[i-1] 低于 low[i]
-        let high  = vec![5.0, 20.0];
-        let low   = vec![3.0, 18.0];
+        let high = vec![5.0, 20.0];
+        let low = vec![3.0, 18.0];
         let close = vec![4.0, 19.0];
         let result = trange(&high, &low, &close);
         assert_eq!(result.len(), 1);
@@ -129,8 +129,8 @@ mod tests {
     #[test]
     fn trange_gap_down() {
         // 跳空向下：close[i-1] 高于 high[i]
-        let high  = vec![20.0, 5.0];
-        let low   = vec![18.0, 3.0];
+        let high = vec![20.0, 5.0];
+        let low = vec![18.0, 3.0];
         let close = vec![19.0, 4.0];
         let result = trange(&high, &low, &close);
         assert_eq!(result.len(), 1);
@@ -155,8 +155,8 @@ mod tests {
     #[test]
     fn trange_output_length() {
         let n = 50;
-        let high:  Vec<f64> = vec![10.0; n];
-        let low:   Vec<f64> = vec![8.0; n];
+        let high: Vec<f64> = vec![10.0; n];
+        let low: Vec<f64> = vec![8.0; n];
         let close: Vec<f64> = vec![9.0; n];
         let result = trange(&high, &low, &close);
         assert_eq!(result.len(), n - 1);

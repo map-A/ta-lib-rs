@@ -30,7 +30,7 @@ pub fn trima(data: &[f64], period: usize) -> Vec<f64> {
     }
 
     let (p1, p2) = if period % 2 == 1 {
-        let p = (period + 1) / 2;
+        let p = period.div_ceil(2);
         (p, p)
     } else {
         (period / 2 + 1, period / 2)

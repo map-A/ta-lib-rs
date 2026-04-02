@@ -5,9 +5,13 @@ use super::helpers::*;
 pub fn cdlstalledpattern(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
     let n = open.len();
     let mut out = vec![0.0f64; n];
-    let period = BODY_LONG_PERIOD.max(SHADOW_VERY_SHORT_PERIOD).max(NEAR_PERIOD);
+    let period = BODY_LONG_PERIOD
+        .max(SHADOW_VERY_SHORT_PERIOD)
+        .max(NEAR_PERIOD);
     let lookback = period + 2;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
     let mut shadow_sum: f64 = (0..period).map(|j| hl_range(high[j], low[j])).sum();
@@ -34,14 +38,16 @@ pub fn cdlstalledpattern(open: &[f64], high: &[f64], low: &[f64], close: &[f64])
             // Third has no upper shadow (showed up near high)
             upper_shadow(open[i], high[i], close[i]) < avg_shadow * SHADOW_VERY_SHORT_FACTOR;
 
-        if is_pattern { out[i] = -100.0; }
+        if is_pattern {
+            out[i] = -100.0;
+        }
 
-        body_sum += real_body(open[i-2], close[i-2]);
-        body_sum -= real_body(open[i-2-period], close[i-2-period]);
-        shadow_sum += hl_range(high[i-2], low[i-2]);
-        shadow_sum -= hl_range(high[i-2-period], low[i-2-period]);
-        near_sum += hl_range(high[i-2], low[i-2]);
-        near_sum -= hl_range(high[i-2-period], low[i-2-period]);
+        body_sum += real_body(open[i - 2], close[i - 2]);
+        body_sum -= real_body(open[i - 2 - period], close[i - 2 - period]);
+        shadow_sum += hl_range(high[i - 2], low[i - 2]);
+        shadow_sum -= hl_range(high[i - 2 - period], low[i - 2 - period]);
+        near_sum += hl_range(high[i - 2], low[i - 2]);
+        near_sum -= hl_range(high[i - 2 - period], low[i - 2 - period]);
     }
     out
 }

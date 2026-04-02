@@ -35,7 +35,11 @@ pub fn beta(real0: &[f64], real1: &[f64], period: usize) -> Vec<f64> {
     // 分母使用 r0 的方差（与 ta-lib 一致）
     let calc = |sr0: f64, sr1: f64, sr0r1: f64, sr0sq: f64| -> f64 {
         let denom = p * sr0sq - sr0 * sr0;
-        if denom == 0.0 { 0.0 } else { (p * sr0r1 - sr0 * sr1) / denom }
+        if denom == 0.0 {
+            0.0
+        } else {
+            (p * sr0r1 - sr0 * sr1) / denom
+        }
     };
 
     out.push(calc(sum_r0, sum_r1, sum_r0r1, sum_r0sq));
@@ -67,7 +71,11 @@ mod tests {
         let result = beta(&data, &data, 5);
         assert_eq!(result.len(), 5);
         for v in &result {
-            assert!((v - 1.0).abs() < 1e-10, "identical series beta=1, got {}", v);
+            assert!(
+                (v - 1.0).abs() < 1e-10,
+                "identical series beta=1, got {}",
+                v
+            );
         }
     }
 

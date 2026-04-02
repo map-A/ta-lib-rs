@@ -36,8 +36,8 @@ use crate::trend::ema::ema;
 use crate::trend::macd::MacdOutput;
 
 // ta-lib MACDFIX uses these fixed multipliers (not period-derived k=2/(p+1))
-const K_FAST: f64 = 0.15;   // corresponds to "period 12" in ta-lib FIX mode
-const K_SLOW: f64 = 0.075;  // corresponds to "period 26" in ta-lib FIX mode
+const K_FAST: f64 = 0.15; // corresponds to "period 12" in ta-lib FIX mode
+const K_SLOW: f64 = 0.075; // corresponds to "period 26" in ta-lib FIX mode
 const FAST_PERIOD: usize = 12;
 const SLOW_PERIOD: usize = 26;
 

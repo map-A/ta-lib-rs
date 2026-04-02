@@ -76,8 +76,12 @@ mod tests {
     #[test]
     fn aroonosc_range() {
         let n = 30_usize;
-        let high: Vec<f64> = (0..n).map(|i| (i as f64 * 0.3).sin() * 5.0 + 50.0).collect();
-        let low: Vec<f64> = (0..n).map(|i| (i as f64 * 0.3).sin() * 5.0 + 48.0).collect();
+        let high: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.3).sin() * 5.0 + 50.0)
+            .collect();
+        let low: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.3).sin() * 5.0 + 48.0)
+            .collect();
         let res = aroonosc(&high, &low, 14);
         for v in &res {
             assert!(*v >= -100.0 && *v <= 100.0, "aroonosc out of range: {v}");

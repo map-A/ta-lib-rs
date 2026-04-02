@@ -54,7 +54,10 @@ pub fn stochrsi(
     fastk_period: usize,
     fastd_period: usize,
 ) -> StochRsiOutput {
-    let empty = StochRsiOutput { fastk: vec![], fastd: vec![] };
+    let empty = StochRsiOutput {
+        fastk: vec![],
+        fastd: vec![],
+    };
 
     if period == 0 || fastk_period == 0 || fastd_period == 0 {
         return empty;
@@ -169,7 +172,9 @@ mod tests {
     #[test]
     fn stochrsi_output_length() {
         let n = 100_usize;
-        let data: Vec<f64> = (0..n).map(|i| (i as f64 * 0.1).sin() * 10.0 + 50.0).collect();
+        let data: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.1).sin() * 10.0 + 50.0)
+            .collect();
         let period = 14;
         let fastk_period = 5;
         let fastd_period = 3;
@@ -181,7 +186,9 @@ mod tests {
 
     #[test]
     fn stochrsi_same_len() {
-        let data: Vec<f64> = (0..80).map(|i| (i as f64 * 0.2).sin() * 5.0 + 50.0).collect();
+        let data: Vec<f64> = (0..80)
+            .map(|i| (i as f64 * 0.2).sin() * 5.0 + 50.0)
+            .collect();
         let res = stochrsi(&data, 14, 5, 3);
         assert_eq!(res.fastk.len(), res.fastd.len());
     }
@@ -204,7 +211,9 @@ mod tests {
 
     #[test]
     fn stochrsi_range() {
-        let data: Vec<f64> = (0..100).map(|i| (i as f64 * 0.3).sin() * 10.0 + 50.0).collect();
+        let data: Vec<f64> = (0..100)
+            .map(|i| (i as f64 * 0.3).sin() * 10.0 + 50.0)
+            .collect();
         let res = stochrsi(&data, 14, 5, 3);
         for k in &res.fastk {
             assert!(*k >= 0.0 && *k <= 100.0, "fastk out of range: {k}");

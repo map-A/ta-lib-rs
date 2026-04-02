@@ -7,7 +7,9 @@ pub fn cdlunique3river(open: &[f64], _high: &[f64], low: &[f64], close: &[f64]) 
     let mut out = vec![0.0f64; n];
     let period = BODY_LONG_PERIOD.max(BODY_SHORT_PERIOD);
     let lookback = period + 2;
-    if n <= lookback { return out; }
+    if n <= lookback {
+        return out;
+    }
 
     let mut body_sum: f64 = (0..period).map(|j| real_body(open[j], close[j])).sum();
 
@@ -28,10 +30,12 @@ pub fn cdlunique3river(open: &[f64], _high: &[f64], low: &[f64], close: &[f64]) 
             real_body(open[i], close[i]) < avg * BODY_SHORT_FACTOR &&
             close[i] < open[i-1];
 
-        if is_pattern { out[i] = 100.0; }
+        if is_pattern {
+            out[i] = 100.0;
+        }
 
-        body_sum += real_body(open[i-2], close[i-2]);
-        body_sum -= real_body(open[i-2-period], close[i-2-period]);
+        body_sum += real_body(open[i - 2], close[i - 2]);
+        body_sum -= real_body(open[i - 2 - period], close[i - 2 - period]);
     }
     out
 }

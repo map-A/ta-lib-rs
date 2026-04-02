@@ -1,8 +1,14 @@
 use polars_core::prelude::*;
-use polars_ta_core::trend::{dema as dema_core, ema as ema_core, tema as tema_core, wma as wma_core};
+use polars_ta_core::trend::{
+    dema as dema_core, ema as ema_core, tema as tema_core, wma as wma_core,
+};
 
 fn series_to_f64(s: &Series) -> PolarsResult<Vec<f64>> {
-    Ok(s.cast(&DataType::Float64)?.f64()?.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+    Ok(s.cast(&DataType::Float64)?
+        .f64()?
+        .into_iter()
+        .map(|v| v.unwrap_or(f64::NAN))
+        .collect())
 }
 
 pub fn ema_series(close: &Series, period: usize) -> PolarsResult<Series> {

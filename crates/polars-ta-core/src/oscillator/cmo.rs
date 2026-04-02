@@ -38,7 +38,11 @@ pub fn cmo(data: &[f64], period: usize) -> Vec<f64> {
     avg_dn *= inv;
 
     let total = avg_up + avg_dn;
-    out.push(if total == 0.0 { 0.0 } else { 100.0 * (avg_up - avg_dn) / total });
+    out.push(if total == 0.0 {
+        0.0
+    } else {
+        100.0 * (avg_up - avg_dn) / total
+    });
 
     // Wilder 平滑更新
     for i in (period + 1)..n {
@@ -53,7 +57,11 @@ pub fn cmo(data: &[f64], period: usize) -> Vec<f64> {
         avg_up = avg_up * decay + gain * inv;
         avg_dn = avg_dn * decay + loss * inv;
         let total = avg_up + avg_dn;
-        out.push(if total == 0.0 { 0.0 } else { 100.0 * (avg_up - avg_dn) / total });
+        out.push(if total == 0.0 {
+            0.0
+        } else {
+            100.0 * (avg_up - avg_dn) / total
+        });
     }
 
     out

@@ -49,54 +49,53 @@ pub fn willr(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64
     let out_len = n - (period - 1);
     let mut out = vec![0.0f64; out_len];
 
-    // 单调递减队列（存储索引）用于 O(n) 滑动最大高价
-    let mut max_dq: std::collections::VecDeque<usize> =
-        std::collections::VecDeque::with_capacity(period);
-    // 单调递增队列（存储索引）用于 O(n) 滑动最小低价
-    let mut min_dq: std::collections::VecDeque<usize> =
-        std::collections::VecDeque::with_capacity(period);
+    // ta-lib 条件重扫算法（NaN 初始化，与 max.rs/min.rs 完全一致）
+    let mut highest = f64::NAN;
+    let mut highest_idx: isize = -1;
+    let mut lowest = f64::NAN;
+    let mut lowest_idx: isize = -1;
 
-    for i in 0..n {
-        let hi = high[i];
-        let li = low[i];
+    for i in 0..out_len {
+        let trail = i as isize;
+        let newest = i + period - 1;
 
-        while let Some(&back) = max_dq.back() {
-            if high[back] <= hi {
-                max_dq.pop_back();
-            } else {
-                break;
+        if highest_idx < trail {
+            highest = high[i];
+            highest_idx = trail;
+            for j in (i + 1)..=newest {
+                if high[j] > highest {
+                    highest = high[j];
+                    highest_idx = j as isize;
+                }
             }
+        } else if high[newest] > highest {
+            highest = high[newest];
+            highest_idx = newest as isize;
         }
-        max_dq.push_back(i);
 
-        while let Some(&back) = min_dq.back() {
-            if low[back] >= li {
-                min_dq.pop_back();
-            } else {
-                break;
+        if lowest_idx < trail {
+            lowest = low[i];
+            lowest_idx = trail;
+            for j in (i + 1)..=newest {
+                if low[j] < lowest {
+                    lowest = low[j];
+                    lowest_idx = j as isize;
+                }
             }
-        }
-        min_dq.push_back(i);
-
-        if max_dq.front().copied().unwrap() + period <= i {
-            max_dq.pop_front();
-        }
-        if min_dq.front().copied().unwrap() + period <= i {
-            min_dq.pop_front();
+        } else if low[newest] < lowest {
+            lowest = low[newest];
+            lowest_idx = newest as isize;
         }
 
-        if i >= period - 1 {
-            let hh = high[*max_dq.front().unwrap()];
-            let ll = low[*min_dq.front().unwrap()];
-            let ci = close[i];
-            let diff = hh - ll;
-            let wr = if diff.abs() < f64::EPSILON {
-                0.0
-            } else {
-                (hh - ci) / diff * -100.0
-            };
-            out[i - (period - 1)] = wr;
-        }
+        let ci = close[newest];
+        let diff = highest - lowest;
+        out[i] = if ci.is_nan() || highest.is_nan() || lowest.is_nan() {
+            f64::NAN
+        } else if diff.abs() < f64::EPSILON {
+            0.0
+        } else {
+            (highest - ci) / diff * -100.0
+        };
     }
 
     out
@@ -141,9 +140,9 @@ mod tests {
 
     #[test]
     fn willr_range() {
-        let high  = vec![10.0, 11.0, 12.0, 11.0, 10.0, 12.0, 13.0, 11.0];
-        let low   = vec![ 8.0,  9.0, 10.0,  9.0,  8.0, 10.0, 11.0,  9.0];
-        let close = vec![ 9.0, 10.0, 11.0, 10.0,  9.0, 11.0, 12.0, 10.0];
+        let high = vec![10.0, 11.0, 12.0, 11.0, 10.0, 12.0, 13.0, 11.0];
+        let low = vec![8.0, 9.0, 10.0, 9.0, 8.0, 10.0, 11.0, 9.0];
+        let close = vec![9.0, 10.0, 11.0, 10.0, 9.0, 11.0, 12.0, 10.0];
         let result = willr(&high, &low, &close, 3);
         for v in &result {
             assert!(*v >= -100.0 && *v <= 0.0, "Williams %R out of range: {v}");
@@ -153,8 +152,8 @@ mod tests {
     #[test]
     fn willr_close_at_high() {
         // close == highest_high → %R = 0
-        let high  = vec![10.0, 11.0, 12.0];
-        let low   = vec![ 8.0,  9.0, 10.0];
+        let high = vec![10.0, 11.0, 12.0];
+        let low = vec![8.0, 9.0, 10.0];
         let close = vec![10.0, 11.0, 12.0]; // close = high
         let result = willr(&high, &low, &close, 3);
         assert_eq!(result.len(), 1);
@@ -165,9 +164,9 @@ mod tests {
     fn willr_close_at_low() {
         // close[i] == lowest_low of window → %R = -100
         // With uniform high/low, close == ll = 8 gives (12-8)/(12-8)*-100 = -100
-        let high  = vec![12.0, 12.0, 12.0];
-        let low   = vec![ 8.0,  8.0,  8.0];
-        let close = vec![12.0, 12.0,  8.0]; // last close = lowest_low
+        let high = vec![12.0, 12.0, 12.0];
+        let low = vec![8.0, 8.0, 8.0];
+        let close = vec![12.0, 12.0, 8.0]; // last close = lowest_low
         let result = willr(&high, &low, &close, 3);
         assert_eq!(result.len(), 1);
         assert_close(result[0], -100.0, 1e-10);
