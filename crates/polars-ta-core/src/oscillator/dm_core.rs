@@ -81,23 +81,48 @@ pub(crate) fn compute_dm_tr_smoothed(
     for i in 1..period {
         let up_move = high[i] - high[i - 1];
         let dn_move = low[i - 1] - low[i];
-        s_plus  += if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
-        s_minus += if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
-        let hl = high[i] - low[i];
-        let hc = (high[i] - close[i - 1]).abs();
-        let lc = (low[i] - close[i - 1]).abs();
-        s_tr += hl.max(hc).max(lc);
+        // NaN-propagating DM for PLUS_DI/MINUS_DI/DX
+        let (pdm, mdm) = if up_move.is_nan() || dn_move.is_nan() {
+            (f64::NAN, f64::NAN)
+        } else {
+            let p = if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            let m = if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            (p, m)
+        };
+        s_plus += pdm;
+        s_minus += mdm;
+        let tr = if high[i].is_nan() || low[i].is_nan() || close[i - 1].is_nan() {
+            f64::NAN
+        } else {
+            let hl = high[i] - low[i];
+            let hc = (high[i] - close[i - 1]).abs();
+            let lc = (low[i] - close[i - 1]).abs();
+            hl.max(hc).max(lc)
+        };
+        s_tr += tr;
     }
 
     {
         let up_move = high[period] - high[period - 1];
         let dn_move = low[period - 1] - low[period];
-        s_plus  = s_plus  * k + if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
-        s_minus = s_minus * k + if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
-        let hl = high[period] - low[period];
-        let hc = (high[period] - close[period - 1]).abs();
-        let lc = (low[period] - close[period - 1]).abs();
-        s_tr = s_tr * k + hl.max(hc).max(lc);
+        let (pdm, mdm) = if up_move.is_nan() || dn_move.is_nan() {
+            (f64::NAN, f64::NAN)
+        } else {
+            let p = if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            let m = if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            (p, m)
+        };
+        s_plus  = s_plus  * k + pdm;
+        s_minus = s_minus * k + mdm;
+        let tr = if high[period].is_nan() || low[period].is_nan() || close[period - 1].is_nan() {
+            f64::NAN
+        } else {
+            let hl = high[period] - low[period];
+            let hc = (high[period] - close[period - 1]).abs();
+            let lc = (low[period] - close[period - 1]).abs();
+            hl.max(hc).max(lc)
+        };
+        s_tr = s_tr * k + tr;
     }
 
     let out_len = n - period;
@@ -113,12 +138,24 @@ pub(crate) fn compute_dm_tr_smoothed(
         let i = period + j;
         let up_move = high[i] - high[i - 1];
         let dn_move = low[i - 1] - low[i];
-        s_plus  = s_plus  * k + if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
-        s_minus = s_minus * k + if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
-        let hl = high[i] - low[i];
-        let hc = (high[i] - close[i - 1]).abs();
-        let lc = (low[i] - close[i - 1]).abs();
-        s_tr = s_tr * k + hl.max(hc).max(lc);
+        let (pdm, mdm) = if up_move.is_nan() || dn_move.is_nan() {
+            (f64::NAN, f64::NAN)
+        } else {
+            let p = if up_move > dn_move && up_move > 0.0 { up_move } else { 0.0 };
+            let m = if dn_move > up_move && dn_move > 0.0 { dn_move } else { 0.0 };
+            (p, m)
+        };
+        s_plus  = s_plus  * k + pdm;
+        s_minus = s_minus * k + mdm;
+        let tr = if high[i].is_nan() || low[i].is_nan() || close[i - 1].is_nan() {
+            f64::NAN
+        } else {
+            let hl = high[i] - low[i];
+            let hc = (high[i] - close[i - 1]).abs();
+            let lc = (low[i] - close[i - 1]).abs();
+            hl.max(hc).max(lc)
+        };
+        s_tr = s_tr * k + tr;
         out_plus[j] = s_plus;
         out_minus[j] = s_minus;
         out_tr[j] = s_tr;

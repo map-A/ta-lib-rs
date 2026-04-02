@@ -86,7 +86,8 @@ pub fn stochrsi(
 
     for i in 0..n {
         if i >= fastk_period {
-            let ws = i - fastk_period + 1;
+            let expiry = i - fastk_period;
+            let ws = expiry + 1;
             while max_front != max_back && max_buf[max_front & mask] < ws {
                 max_front = max_front.wrapping_add(1);
             }
@@ -94,31 +95,42 @@ pub fn stochrsi(
                 min_front = min_front.wrapping_add(1);
             }
         }
-        while max_front != max_back
-            && rsi_values[max_buf[max_back.wrapping_sub(1) & mask]] <= rsi_values[i]
-        {
-            max_back = max_back.wrapping_sub(1);
-        }
-        max_buf[max_back & mask] = i;
-        max_back = max_back.wrapping_add(1);
 
-        while min_front != min_back
-            && rsi_values[min_buf[min_back.wrapping_sub(1) & mask]] >= rsi_values[i]
-        {
-            min_back = min_back.wrapping_sub(1);
+        if !rsi_values[i].is_nan() {
+            while max_front != max_back
+                && rsi_values[max_buf[max_back.wrapping_sub(1) & mask]] <= rsi_values[i]
+            {
+                max_back = max_back.wrapping_sub(1);
+            }
+            max_buf[max_back & mask] = i;
+            max_back = max_back.wrapping_add(1);
+
+            while min_front != min_back
+                && rsi_values[min_buf[min_back.wrapping_sub(1) & mask]] >= rsi_values[i]
+            {
+                min_back = min_back.wrapping_sub(1);
+            }
+            min_buf[min_back & mask] = i;
+            min_back = min_back.wrapping_add(1);
         }
-        min_buf[min_back & mask] = i;
-        min_back = min_back.wrapping_add(1);
 
         if i >= fastk_period - 1 {
-            let hh = rsi_values[max_buf[max_front & mask]];
-            let ll = rsi_values[min_buf[min_front & mask]];
-            let fk = if (hh - ll).abs() < f64::EPSILON {
-                0.0
+            let window_start = i + 1 - fastk_period;
+            // ta-lib C behavior: init lowest/highest to window-start value.
+            // If window-start is NaN, result is NaN. Otherwise NaN values in
+            // window are silently skipped (NaN comparisons return false in C).
+            if rsi_values[window_start].is_nan() {
+                fastk_raw[window_start] = f64::NAN;
             } else {
-                (rsi_values[i] - ll) / (hh - ll) * 100.0
-            };
-            fastk_raw[i + 1 - fastk_period] = fk;
+                let hh = rsi_values[max_buf[max_front & mask]];
+                let ll = rsi_values[min_buf[min_front & mask]];
+                let fk = if (hh - ll).abs() < f64::EPSILON {
+                    0.0
+                } else {
+                    (rsi_values[i] - ll) / (hh - ll) * 100.0
+                };
+                fastk_raw[window_start] = fk;
+            }
         }
     }
 

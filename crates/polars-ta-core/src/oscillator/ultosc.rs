@@ -71,10 +71,21 @@ pub fn ultosc(
     let mut tr = Vec::with_capacity(raw);
     for i in 1..n {
         let pc = close[i - 1];
-        let true_low  = low[i].min(pc);
-        let true_high = high[i].max(pc);
-        bp.push(close[i] - true_low);
-        tr.push(true_high - true_low);
+        let c = close[i];
+        let h = high[i];
+        let l = low[i];
+        let bp_val = if c.is_nan() || l.is_nan() || pc.is_nan() {
+            f64::NAN
+        } else {
+            c - l.min(pc)
+        };
+        let tr_val = if h.is_nan() || l.is_nan() || pc.is_nan() {
+            f64::NAN
+        } else {
+            h.max(pc) - l.min(pc)
+        };
+        bp.push(bp_val);
+        tr.push(tr_val);
     }
 
     // 滑动窗口：O(n) 总复杂度，三个周期各维护一对 (bp_sum, tr_sum)

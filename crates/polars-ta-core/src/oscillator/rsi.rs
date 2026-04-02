@@ -60,6 +60,11 @@ pub fn rsi(data: &[f64], period: usize) -> Vec<f64> {
     let mut avg_loss = 0.0_f64;
     for i in 0..period {
         let change = data[i + 1] - data[i];
+        if change.is_nan() {
+            avg_gain = f64::NAN;
+            avg_loss = f64::NAN;
+            break;
+        }
         if change > 0.0 {
             avg_gain += change;
         } else {
@@ -73,13 +78,18 @@ pub fn rsi(data: &[f64], period: usize) -> Vec<f64> {
     out.push(compute_rsi(avg_gain, avg_loss));
 
     // Wilder smoothing for remaining values
+    let pf = period as f64;
     for i in (period + 1)..n {
         let change = data[i] - data[i - 1];
-        let gain = if change > 0.0 { change } else { 0.0 };
-        let loss = if change < 0.0 { -change } else { 0.0 };
-
-        avg_gain = (avg_gain * (period as f64 - 1.0) + gain) / period as f64;
-        avg_loss = (avg_loss * (period as f64 - 1.0) + loss) / period as f64;
+        let (gain, loss) = if change.is_nan() {
+            (f64::NAN, f64::NAN)
+        } else if change > 0.0 {
+            (change, 0.0)
+        } else {
+            (0.0, -change)
+        };
+        avg_gain = (avg_gain * (pf - 1.0) + gain) / pf;
+        avg_loss = (avg_loss * (pf - 1.0) + loss) / pf;
 
         out.push(compute_rsi(avg_gain, avg_loss));
     }
@@ -89,6 +99,9 @@ pub fn rsi(data: &[f64], period: usize) -> Vec<f64> {
 
 #[inline]
 fn compute_rsi(avg_gain: f64, avg_loss: f64) -> f64 {
+    if avg_gain.is_nan() || avg_loss.is_nan() {
+        return f64::NAN;
+    }
     if avg_gain == 0.0 {
         return 0.0;
     }

@@ -76,11 +76,10 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pc = close[i - 1];
         let ph = high[i - 1];
         let pl = low[i - 1];
-        s_tr += (h - l).max((h - pc).abs()).max((l - pc).abs());
-        let up = h - ph;
-        let dn = pl - l;
-        s_pdm += if up > dn.max(0.0) { up } else { 0.0 };
-        s_mdm += if dn > up.max(0.0) { dn } else { 0.0 };
+        s_tr += adx_tr(h, l, pc);
+        let (apdm, amdm) = adx_dm(h, ph, l, pl);
+        s_pdm += apdm;
+        s_mdm += amdm;
     }
 
     // Wilder 初始化：用第 period 个原始值做第一次平滑
@@ -90,11 +89,8 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pc = close[period - 1];
         let ph = high[period - 1];
         let pl = low[period - 1];
-        let tr = (h - l).max((h - pc).abs()).max((l - pc).abs());
-        let up = h - ph;
-        let dn = pl - l;
-        let pdm = if up > dn.max(0.0) { up } else { 0.0 };
-        let mdm = if dn > up.max(0.0) { dn } else { 0.0 };
+        let tr = adx_tr(h, l, pc);
+        let (pdm, mdm) = adx_dm(h, ph, l, pl);
         s_tr  = s_tr  * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
@@ -118,11 +114,8 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pc = close[i - 1];
         let ph = high[i - 1];
         let pl = low[i - 1];
-        let tr = (h - l).max((h - pc).abs()).max((l - pc).abs());
-        let up = h - ph;
-        let dn = pl - l;
-        let pdm = if up > dn.max(0.0) { up } else { 0.0 };
-        let mdm = if dn > up.max(0.0) { dn } else { 0.0 };
+        let tr = adx_tr(h, l, pc);
+        let (pdm, mdm) = adx_dm(h, ph, l, pl);
         s_tr  = s_tr  * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
@@ -144,11 +137,8 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
         let pc = close[i - 1];
         let ph = high[i - 1];
         let pl = low[i - 1];
-        let tr = (h - l).max((h - pc).abs()).max((l - pc).abs());
-        let up = h - ph;
-        let dn = pl - l;
-        let pdm = if up > dn.max(0.0) { up } else { 0.0 };
-        let mdm = if dn > up.max(0.0) { dn } else { 0.0 };
+        let tr = adx_tr(h, l, pc);
+        let (pdm, mdm) = adx_dm(h, ph, l, pl);
         s_tr  = s_tr  * k + tr;
         s_pdm = s_pdm * k + pdm;
         s_mdm = s_mdm * k + mdm;
@@ -159,6 +149,29 @@ pub fn adx(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
     }
 
     out
+}
+
+#[inline]
+fn adx_tr(h: f64, l: f64, pc: f64) -> f64 {
+    if h.is_nan() || l.is_nan() || pc.is_nan() {
+        return f64::NAN;
+    }
+    let hl = h - l;
+    let hc = (h - pc).abs();
+    let lc = (l - pc).abs();
+    hl.max(hc).max(lc)
+}
+
+#[inline]
+fn adx_dm(h: f64, ph: f64, l: f64, pl: f64) -> (f64, f64) {
+    let up = h - ph;
+    let dn = pl - l;
+    if up.is_nan() || dn.is_nan() {
+        return (f64::NAN, f64::NAN);
+    }
+    let pdm = if up > dn && up > 0.0 { up } else { 0.0 };
+    let mdm = if dn > up && dn > 0.0 { dn } else { 0.0 };
+    (pdm, mdm)
 }
 
 #[cfg(test)]

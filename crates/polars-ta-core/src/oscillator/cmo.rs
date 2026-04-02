@@ -23,6 +23,11 @@ pub fn cmo(data: &[f64], period: usize) -> Vec<f64> {
     let mut avg_dn = 0.0_f64;
     for i in 1..=period {
         let d = data[i] - data[i - 1];
+        if d.is_nan() {
+            avg_up = f64::NAN;
+            avg_dn = f64::NAN;
+            break;
+        }
         if d > 0.0 {
             avg_up += d;
         } else {
@@ -38,8 +43,13 @@ pub fn cmo(data: &[f64], period: usize) -> Vec<f64> {
     // Wilder 平滑更新
     for i in (period + 1)..n {
         let d = data[i] - data[i - 1];
-        let gain = if d > 0.0 { d } else { 0.0 };
-        let loss = if d < 0.0 { -d } else { 0.0 };
+        let (gain, loss) = if d.is_nan() {
+            (f64::NAN, f64::NAN)
+        } else if d > 0.0 {
+            (d, 0.0)
+        } else {
+            (0.0, -d)
+        };
         avg_up = avg_up * decay + gain * inv;
         avg_dn = avg_dn * decay + loss * inv;
         let total = avg_up + avg_dn;

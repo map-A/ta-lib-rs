@@ -62,10 +62,17 @@ pub fn trange(high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
         let hi = h[i];
         let li = l[i];
         let ci = c[i];
-        let hl = hi - li;
-        let hc = (hi - ci).abs();
-        let lc = (li - ci).abs();
-        out[i] = hl.max(hc).max(lc);
+        // ta-lib: NaN only when high or low is NaN; NaN prev_close falls back to high-low
+        out[i] = if hi.is_nan() || li.is_nan() {
+            f64::NAN
+        } else if ci.is_nan() {
+            hi - li
+        } else {
+            let hl = hi - li;
+            let hc = (hi - ci).abs();
+            let lc = (li - ci).abs();
+            hl.max(hc).max(lc)
+        };
     }
 
     out
