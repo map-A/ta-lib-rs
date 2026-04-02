@@ -283,3 +283,58 @@ pub fn check_close(actual: &[f64], golden: &[Option<f64>], epsilon: f64, label: 
         expected_len: valid_golden.len(),
     }
 }
+
+/// Like [`check_close`] but accepts both absolute and relative tolerances.
+///
+/// A value passes if `|diff| <= abs_eps` OR `|diff| / |expected|.max(1e-300) <= rel_eps`.
+/// Use `rel_eps = 0.0` to disable the relative check.
+pub fn check_close_relative(
+    actual: &[f64],
+    golden: &[Option<f64>],
+    abs_eps: f64,
+    rel_eps: f64,
+    label: &str,
+) -> GoldenTestResult {
+    let valid_golden: Vec<(usize, f64)> = golden
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| v.map(|f| (i, f)))
+        .collect();
+
+    let valid_actual: Vec<f64> = actual.iter().copied().filter(|v| !v.is_nan()).collect();
+
+    if valid_actual.len() != valid_golden.len() {
+        return GoldenTestResult {
+            label: label.to_string(),
+            passed: false,
+            max_diff: f64::INFINITY,
+            failure_count: 1,
+            actual_len: valid_actual.len(),
+            expected_len: valid_golden.len(),
+        };
+    }
+
+    let mut max_diff = 0.0f64;
+    let mut failure_count = 0usize;
+
+    for (actual_val, (_golden_idx, expected)) in valid_actual.iter().zip(valid_golden.iter()) {
+        let diff = (actual_val - expected).abs();
+        if diff > max_diff {
+            max_diff = diff;
+        }
+        let abs_ok = diff <= abs_eps;
+        let rel_ok = rel_eps > 0.0 && diff / expected.abs().max(1e-300) <= rel_eps;
+        if !abs_ok && !rel_ok {
+            failure_count += 1;
+        }
+    }
+
+    GoldenTestResult {
+        label: label.to_string(),
+        passed: failure_count == 0,
+        max_diff,
+        failure_count,
+        actual_len: valid_actual.len(),
+        expected_len: valid_golden.len(),
+    }
+}

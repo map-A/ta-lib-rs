@@ -1,10 +1,11 @@
-//! Hilbert Transform indicators — 6 functions matching ta-lib.
+//! Hilbert Transform indicators — 6 functions matching ta-lib exactly.
 //!
-//! These use the same Hilbert Transform kernel as ta-lib's `TA_INT_*` internal functions.
-//! The lookback for all HT indicators is 63 bars.
+//! Two groups share an engine but differ in warmup depth:
+//! - Lookback 32 (DCPeriod, Phasor): WMA warmup i=9, HT from bar 12.
+//! - Lookback 63 (DCPhase, Sine, Trendline, Trendmode): WMA warmup i=34, HT from bar 37.
 //!
-//! # References
-//! John Ehlers, "Rocket Science for Traders", 2001.
+//! All functions return `Vec<f64>` of length `n`; positions before the lookback
+//! contain `NaN` (except `ht_trendmode` which uses `0.0`).
 
 pub(crate) mod core;
 

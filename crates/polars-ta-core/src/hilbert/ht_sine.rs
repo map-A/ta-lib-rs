@@ -1,24 +1,19 @@
-//! HT_SINE — Hilbert Transform Sine Wave
-//! Returns two vectors: (sine, leadsine).
-use super::core::{HtState, ht_step, HT_LOOKBACK};
+//! HT_SINE — Hilbert Transform Sine Wave.
+//!
+//! Lookback = 63. Returns `(sine, leadsine)` each of length `n`,
+//! with `NaN` for the first 63 bars.
+use super::core::{run_ht_engine, HT_LOOKBACK_LARGE};
 
-/// Returns `(sine, leadsine)` starting at index `HT_LOOKBACK`.
 pub fn ht_sine(close: &[f64]) -> (Vec<f64>, Vec<f64>) {
     let n = close.len();
-    if n <= HT_LOOKBACK { return (vec![], vec![]); }
-    let out_len = n - HT_LOOKBACK;
-    let mut sine_out = vec![0.0f64; out_len];
-    let mut lead_out = vec![0.0f64; out_len];
-    let mut state = HtState::new();
-    for i in 0..HT_LOOKBACK {
-        let _ = ht_step(close[i], &mut state);
-    }
-    for i in 0..out_len {
-        let (_, phase) = ht_step(close[i + HT_LOOKBACK], &mut state);
-        let phase_rad = (phase + 90.0) * std::f64::consts::PI / 180.0;
-        sine_out[i] = phase_rad.sin();
-        let lead_rad = (phase + 135.0) * std::f64::consts::PI / 180.0;
-        lead_out[i] = lead_rad.sin();
+    let results = run_ht_engine(close, 34);
+    let mut sine_out = vec![f64::NAN; n];
+    let mut lead_out = vec![f64::NAN; n];
+    for bar in HT_LOOKBACK_LARGE..n {
+        if let Some(r) = &results[bar] {
+            sine_out[bar] = r.sine;
+            lead_out[bar] = r.lead_sine;
+        }
     }
     (sine_out, lead_out)
 }

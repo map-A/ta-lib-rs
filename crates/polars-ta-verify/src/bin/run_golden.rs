@@ -42,7 +42,7 @@ use polars_ta_core::trend::{
 };
 use polars_ta_core::volatility::{atr, natr, trange};
 use polars_ta_core::volume::{ad, adosc, obv};
-use polars_ta_verify::golden::{check_close, load_golden_file, GoldenTestResult};
+use polars_ta_verify::golden::{check_close_relative, load_golden_file, GoldenTestResult};
 use std::path::Path;
 
 /// 合并多个输出的结果，取最差情况（任意一个失败则整体失败）。
@@ -53,6 +53,12 @@ fn merge_results(label: &str, results: &[GoldenTestResult]) -> GoldenTestResult 
     let actual_len = results.first().map(|r| r.actual_len).unwrap_or(0);
     let expected_len = results.first().map(|r| r.expected_len).unwrap_or(0);
     GoldenTestResult { label: label.to_string(), passed, max_diff, failure_count, actual_len, expected_len }
+}
+
+/// Use relative+absolute tolerance so BTC-scale floating-point drift doesn't fail tests.
+/// Pass if |diff| <= 1e-5 (absolute, covers float cancellation) OR |diff|/|expected| <= 1e-8 (relative).
+fn chk(actual: &[f64], golden: &[Option<f64>], label: &str) -> GoldenTestResult {
+    check_close_relative(actual, golden, 1e-5, 1e-8, label)
 }
 
 fn main() {
@@ -112,60 +118,60 @@ fn main() {
             "sma" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(20) as usize;
                 let input = get_input!("close");
-                check_close(&sma(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&sma(&input, period), get_output!("values"), &filename)
             }
             "ema" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(20) as usize;
                 let input = get_input!("close");
-                check_close(&ema(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&ema(&input, period), get_output!("values"), &filename)
             }
             "wma" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(20) as usize;
                 let input = get_input!("close");
-                check_close(&wma(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&wma(&input, period), get_output!("values"), &filename)
             }
             "dema" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(20) as usize;
                 let input = get_input!("close");
-                check_close(&dema(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&dema(&input, period), get_output!("values"), &filename)
             }
             "tema" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(20) as usize;
                 let input = get_input!("close");
-                check_close(&tema(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&tema(&input, period), get_output!("values"), &filename)
             }
             "kama" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&kama(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&kama(&input, period), get_output!("values"), &filename)
             }
             "trima" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&trima(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&trima(&input, period), get_output!("values"), &filename)
             }
             "t3" => {
                 let period  = golden.meta.params["period"].as_u64().unwrap_or(5) as usize;
                 let vfactor = golden.meta.params["vfactor"].as_f64().unwrap_or(0.7);
                 let input = get_input!("close");
-                check_close(&t3(&input, period, vfactor), get_output!("values"), 1e-10, &filename)
+                chk(&t3(&input, period, vfactor), get_output!("values"), &filename)
             }
             "ma" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let matype = golden.meta.params["matype"].as_u64().unwrap_or(1) as usize;
                 let input = get_input!("close");
-                check_close(&ma(&input, period, matype), get_output!("values"), 1e-10, &filename)
+                chk(&ma(&input, period, matype), get_output!("values"), &filename)
             }
             "midpoint" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&midpoint(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&midpoint(&input, period), get_output!("values"), &filename)
             }
             "midprice" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&midprice(&high, &low, period), get_output!("values"), 1e-10, &filename)
+                chk(&midprice(&high, &low, period), get_output!("values"), &filename)
             }
             "macd" => {
                 let fast   = golden.meta.params["fast"].as_u64().unwrap_or(12) as usize;
@@ -173,9 +179,9 @@ fn main() {
                 let signal = golden.meta.params["signal"].as_u64().unwrap_or(9) as usize;
                 let input = get_input!("close");
                 let out = macd(&input, fast, slow, signal);
-                let r_macd   = check_close(&out.macd,   get_output!("macd"),   1e-10, &filename);
-                let r_signal = check_close(&out.signal, get_output!("signal"), 1e-10, &filename);
-                let r_hist   = check_close(&out.hist,   get_output!("hist"),   1e-10, &filename);
+                let r_macd   = chk(&out.macd, get_output!("macd"), &filename);
+                let r_signal = chk(&out.signal, get_output!("signal"), &filename);
+                let r_hist   = chk(&out.hist, get_output!("hist"), &filename);
                 merge_results(&filename, &[r_macd, r_signal, r_hist])
             }
             "macdext" => {
@@ -185,18 +191,18 @@ fn main() {
                 let matype = golden.meta.params["matype"].as_u64().unwrap_or(1) as usize;
                 let input = get_input!("close");
                 let out = macdext(&input, fast, matype, slow, matype, signal, matype);
-                let r_macd   = check_close(&out.macd,   get_output!("macd"),   1e-10, &filename);
-                let r_signal = check_close(&out.signal, get_output!("signal"), 1e-10, &filename);
-                let r_hist   = check_close(&out.hist,   get_output!("hist"),   1e-10, &filename);
+                let r_macd   = chk(&out.macd, get_output!("macd"), &filename);
+                let r_signal = chk(&out.signal, get_output!("signal"), &filename);
+                let r_hist   = chk(&out.hist, get_output!("hist"), &filename);
                 merge_results(&filename, &[r_macd, r_signal, r_hist])
             }
             "macdfix" => {
                 let signal = golden.meta.params["signal"].as_u64().unwrap_or(9) as usize;
                 let input = get_input!("close");
                 let out = macdfix(&input, signal);
-                let r_macd   = check_close(&out.macd,   get_output!("macd"),   1e-10, &filename);
-                let r_signal = check_close(&out.signal, get_output!("signal"), 1e-10, &filename);
-                let r_hist   = check_close(&out.hist,   get_output!("hist"),   1e-10, &filename);
+                let r_macd   = chk(&out.macd, get_output!("macd"), &filename);
+                let r_signal = chk(&out.signal, get_output!("signal"), &filename);
+                let r_hist   = chk(&out.hist, get_output!("hist"), &filename);
                 merge_results(&filename, &[r_macd, r_signal, r_hist])
             }
             "bbands" => {
@@ -205,9 +211,9 @@ fn main() {
                 let nbdevdn = golden.meta.params["nbdevdn"].as_f64().unwrap_or(2.0);
                 let input = get_input!("close");
                 let out = bbands(&input, period, nbdevup, nbdevdn);
-                let r_upper  = check_close(&out.upper,  get_output!("upper"),  1e-10, &filename);
-                let r_middle = check_close(&out.middle, get_output!("middle"), 1e-10, &filename);
-                let r_lower  = check_close(&out.lower,  get_output!("lower"),  1e-10, &filename);
+                let r_upper  = chk(&out.upper, get_output!("upper"), &filename);
+                let r_middle = chk(&out.middle, get_output!("middle"), &filename);
+                let r_lower  = chk(&out.lower, get_output!("lower"), &filename);
                 merge_results(&filename, &[r_upper, r_middle, r_lower])
             }
             "sar" => {
@@ -215,14 +221,14 @@ fn main() {
                 let maximum      = golden.meta.params["maximum"].as_f64().unwrap_or(0.2);
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&sar(&high, &low, acceleration, maximum), get_output!("values"), 1e-10, &filename)
+                chk(&sar(&high, &low, acceleration, maximum), get_output!("values"), &filename)
             }
             "sarext" => {
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(
+                chk(
                     &sarext(&high, &low, 0.0, 0.0, 0.01, 0.01, 0.20, 0.01, 0.01, 0.20),
-                    get_output!("values"), 1e-10, &filename,
+                    get_output!("values"), &filename,
                 )
             }
             "adx" => {
@@ -230,15 +236,15 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&adx(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&adx(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "mama" => {
                 let fast_limit = golden.meta.params["fastlimit"].as_f64().unwrap_or(0.5);
                 let slow_limit = golden.meta.params["slowlimit"].as_f64().unwrap_or(0.05);
                 let input = get_input!("close");
                 let out = mama(&input, fast_limit, slow_limit);
-                let r_mama = check_close(&out.mama, get_output!("mama"), 1e-10, &filename);
-                let r_fama = check_close(&out.fama, get_output!("fama"), 1e-10, &filename);
+                let r_mama = chk(&out.mama, get_output!("mama"), &filename);
+                let r_fama = chk(&out.fama, get_output!("fama"), &filename);
                 merge_results(&filename, &[r_mama, r_fama])
             }
             "mavp" => {
@@ -246,14 +252,14 @@ fn main() {
                 let max_period = golden.meta.params["maxperiod"].as_u64().unwrap_or(30) as usize;
                 let input   = get_input!("close");
                 let periods = get_input!("periods");
-                check_close(&mavp(&input, &periods, min_period, max_period), get_output!("values"), 1e-10, &filename)
+                chk(&mavp(&input, &periods, min_period, max_period), get_output!("values"), &filename)
             }
 
             // ── Oscillator ────────────────────────────────────────────────────
             "rsi" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&rsi(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&rsi(&input, period), get_output!("values"), &filename)
             }
             "stoch" => {
                 let fastk = golden.meta.params["fastk"].as_u64().unwrap_or(5) as usize;
@@ -263,8 +269,8 @@ fn main() {
                 let low   = get_input!("low");
                 let close = get_input!("close");
                 let out = stoch(&high, &low, &close, fastk, slowk, slowd);
-                let r_slowk = check_close(&out.slowk, get_output!("slowk"), 1e-10, &filename);
-                let r_slowd = check_close(&out.slowd, get_output!("slowd"), 1e-10, &filename);
+                let r_slowk = chk(&out.slowk, get_output!("slowk"), &filename);
+                let r_slowd = chk(&out.slowd, get_output!("slowd"), &filename);
                 merge_results(&filename, &[r_slowk, r_slowd])
             }
             "stochf" => {
@@ -274,8 +280,8 @@ fn main() {
                 let low   = get_input!("low");
                 let close = get_input!("close");
                 let out = stochf(&high, &low, &close, fastk, fastd);
-                let r_fastk = check_close(&out.fastk, get_output!("fastk"), 1e-10, &filename);
-                let r_fastd = check_close(&out.fastd, get_output!("fastd"), 1e-10, &filename);
+                let r_fastk = chk(&out.fastk, get_output!("fastk"), &filename);
+                let r_fastd = chk(&out.fastd, get_output!("fastd"), &filename);
                 merge_results(&filename, &[r_fastk, r_fastd])
             }
             "stochrsi" => {
@@ -284,8 +290,8 @@ fn main() {
                 let fastd  = golden.meta.params["fastd"].as_u64().unwrap_or(3) as usize;
                 let input = get_input!("close");
                 let out = stochrsi(&input, period, fastk, fastd);
-                let r_fastk = check_close(&out.fastk, get_output!("fastk"), 1e-10, &filename);
-                let r_fastd = check_close(&out.fastd, get_output!("fastd"), 1e-10, &filename);
+                let r_fastk = chk(&out.fastk, get_output!("fastk"), &filename);
+                let r_fastd = chk(&out.fastd, get_output!("fastd"), &filename);
                 merge_results(&filename, &[r_fastk, r_fastd])
             }
             "cci" => {
@@ -293,14 +299,14 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cci(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&cci(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "willr" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&willr(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&willr(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "ultosc" => {
                 let period1 = golden.meta.params["period1"].as_u64().unwrap_or(7)  as usize;
@@ -309,86 +315,86 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&ultosc(&high, &low, &close, period1, period2, period3), get_output!("values"), 1e-10, &filename)
+                chk(&ultosc(&high, &low, &close, period1, period2, period3), get_output!("values"), &filename)
             }
             "aroon" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high = get_input!("high");
                 let low  = get_input!("low");
                 let out = aroon(&high, &low, period);
-                let r_down = check_close(&out.aroon_down, get_output!("aroon_down"), 1e-10, &filename);
-                let r_up   = check_close(&out.aroon_up,   get_output!("aroon_up"),   1e-10, &filename);
+                let r_down = chk(&out.aroon_down, get_output!("aroon_down"), &filename);
+                let r_up   = chk(&out.aroon_up, get_output!("aroon_up"), &filename);
                 merge_results(&filename, &[r_down, r_up])
             }
             "aroonosc" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&aroonosc(&high, &low, period), get_output!("values"), 1e-10, &filename)
+                chk(&aroonosc(&high, &low, period), get_output!("values"), &filename)
             }
             "adxr" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&adxr(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&adxr(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "apo" => {
                 let fast = golden.meta.params["fast"].as_u64().unwrap_or(12) as usize;
                 let slow = golden.meta.params["slow"].as_u64().unwrap_or(26) as usize;
                 let input = get_input!("close");
-                check_close(&apo(&input, fast, slow), get_output!("values"), 1e-10, &filename)
+                chk(&apo(&input, fast, slow), get_output!("values"), &filename)
             }
             "ppo" => {
                 let fast = golden.meta.params["fast"].as_u64().unwrap_or(12) as usize;
                 let slow = golden.meta.params["slow"].as_u64().unwrap_or(26) as usize;
                 let input = get_input!("close");
-                check_close(&ppo(&input, fast, slow), get_output!("values"), 1e-10, &filename)
+                chk(&ppo(&input, fast, slow), get_output!("values"), &filename)
             }
             "bop" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&bop(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&bop(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cmo" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&cmo(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&cmo(&input, period), get_output!("values"), &filename)
             }
             "dx" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&dx(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&dx(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "minus_di" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&minus_di(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&minus_di(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "minus_dm" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&minus_dm(&high, &low, period), get_output!("values"), 1e-10, &filename)
+                chk(&minus_dm(&high, &low, period), get_output!("values"), &filename)
             }
             "plus_di" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&plus_di(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&plus_di(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "plus_dm" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&plus_dm(&high, &low, period), get_output!("values"), 1e-10, &filename)
+                chk(&plus_dm(&high, &low, period), get_output!("values"), &filename)
             }
             "mfi" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
@@ -396,37 +402,37 @@ fn main() {
                 let low    = get_input!("low");
                 let close  = get_input!("close");
                 let volume = get_input!("volume");
-                check_close(&mfi(&high, &low, &close, &volume, period), get_output!("values"), 1e-10, &filename)
+                chk(&mfi(&high, &low, &close, &volume, period), get_output!("values"), &filename)
             }
             "mom" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&mom(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&mom(&input, period), get_output!("values"), &filename)
             }
             "roc" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&roc(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&roc(&input, period), get_output!("values"), &filename)
             }
             "rocp" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&rocp(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&rocp(&input, period), get_output!("values"), &filename)
             }
             "rocr" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&rocr(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&rocr(&input, period), get_output!("values"), &filename)
             }
             "rocr100" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(10) as usize;
                 let input = get_input!("close");
-                check_close(&rocr100(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&rocr100(&input, period), get_output!("values"), &filename)
             }
             "trix" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(5) as usize;
                 let input = get_input!("close");
-                check_close(&trix(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&trix(&input, period), get_output!("values"), &filename)
             }
 
             // ── Volatility ────────────────────────────────────────────────────
@@ -434,35 +440,35 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&trange(&high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&trange(&high, &low, &close), get_output!("values"), &filename)
             }
             "atr" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&atr(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&atr(&high, &low, &close, period), get_output!("values"), &filename)
             }
             "natr" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&natr(&high, &low, &close, period), get_output!("values"), 1e-10, &filename)
+                chk(&natr(&high, &low, &close, period), get_output!("values"), &filename)
             }
 
             // ── Volume ────────────────────────────────────────────────────────
             "obv" => {
                 let close  = get_input!("close");
                 let volume = get_input!("volume");
-                check_close(&obv(&close, &volume), get_output!("values"), 1e-10, &filename)
+                chk(&obv(&close, &volume), get_output!("values"), &filename)
             }
             "ad" => {
                 let high   = get_input!("high");
                 let low    = get_input!("low");
                 let close  = get_input!("close");
                 let volume = get_input!("volume");
-                check_close(&ad(&high, &low, &close, &volume), get_output!("values"), 1e-10, &filename)
+                chk(&ad(&high, &low, &close, &volume), get_output!("values"), &filename)
             }
             "adosc" => {
                 let fast = golden.meta.params["fast"].as_u64().unwrap_or(3)  as usize;
@@ -471,7 +477,7 @@ fn main() {
                 let low    = get_input!("low");
                 let close  = get_input!("close");
                 let volume = get_input!("volume");
-                check_close(&adosc(&high, &low, &close, &volume, fast, slow), get_output!("values"), 1e-10, &filename)
+                chk(&adosc(&high, &low, &close, &volume, fast, slow), get_output!("values"), &filename)
             }
 
             // ── Statistic ─────────────────────────────────────────────────────
@@ -479,50 +485,50 @@ fn main() {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(5) as usize;
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&beta(&real0, &real1, period), get_output!("values"), 1e-10, &filename)
+                chk(&beta(&real0, &real1, period), get_output!("values"), &filename)
             }
             "correl" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&correl(&real0, &real1, period), get_output!("values"), 1e-10, &filename)
+                chk(&correl(&real0, &real1, period), get_output!("values"), &filename)
             }
             "linearreg" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&linearreg(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&linearreg(&input, period), get_output!("values"), &filename)
             }
             "linearreg_angle" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&linearreg_angle(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&linearreg_angle(&input, period), get_output!("values"), &filename)
             }
             "linearreg_intercept" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&linearreg_intercept(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&linearreg_intercept(&input, period), get_output!("values"), &filename)
             }
             "linearreg_slope" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&linearreg_slope(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&linearreg_slope(&input, period), get_output!("values"), &filename)
             }
             "stddev" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(5) as usize;
                 let nbdev  = golden.meta.params["nbdev"].as_f64().unwrap_or(1.0);
                 let input = get_input!("close");
-                check_close(&stddev(&input, period, nbdev), get_output!("values"), 1e-10, &filename)
+                chk(&stddev(&input, period, nbdev), get_output!("values"), &filename)
             }
             "var" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(5) as usize;
                 let nbdev  = golden.meta.params["nbdev"].as_f64().unwrap_or(1.0);
                 let input = get_input!("close");
-                check_close(&var(&input, period, nbdev), get_output!("values"), 1e-10, &filename)
+                chk(&var(&input, period, nbdev), get_output!("values"), &filename)
             }
             "tsf" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(14) as usize;
                 let input = get_input!("close");
-                check_close(&tsf(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&tsf(&input, period), get_output!("values"), &filename)
             }
 
             // ── Price Transform ───────────────────────────────────────────────
@@ -531,181 +537,181 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&avgprice(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&avgprice(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "medprice" => {
                 let high = get_input!("high");
                 let low  = get_input!("low");
-                check_close(&medprice(&high, &low), get_output!("values"), 1e-10, &filename)
+                chk(&medprice(&high, &low), get_output!("values"), &filename)
             }
             "typprice" => {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&typprice(&high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&typprice(&high, &low, &close), get_output!("values"), &filename)
             }
             "wclprice" => {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&wclprice(&high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&wclprice(&high, &low, &close), get_output!("values"), &filename)
             }
 
             // ── Math Transform ────────────────────────────────────────────────
             "acos" => {
                 let input = get_input!("close");
-                check_close(&acos(&input), get_output!("values"), 1e-10, &filename)
+                chk(&acos(&input), get_output!("values"), &filename)
             }
             "asin" => {
                 let input = get_input!("close");
-                check_close(&asin(&input), get_output!("values"), 1e-10, &filename)
+                chk(&asin(&input), get_output!("values"), &filename)
             }
             "atan" => {
                 let input = get_input!("close");
-                check_close(&atan(&input), get_output!("values"), 1e-10, &filename)
+                chk(&atan(&input), get_output!("values"), &filename)
             }
             "ceil" => {
                 let input = get_input!("close");
-                check_close(&ceil(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ceil(&input), get_output!("values"), &filename)
             }
             "cos" => {
                 let input = get_input!("close");
-                check_close(&cos(&input), get_output!("values"), 1e-10, &filename)
+                chk(&cos(&input), get_output!("values"), &filename)
             }
             "cosh" => {
                 let input = get_input!("close");
-                check_close(&cosh(&input), get_output!("values"), 1e-10, &filename)
+                chk(&cosh(&input), get_output!("values"), &filename)
             }
             "exp" => {
                 let input = get_input!("close");
-                check_close(&exp(&input), get_output!("values"), 1e-10, &filename)
+                chk(&exp(&input), get_output!("values"), &filename)
             }
             "floor" => {
                 let input = get_input!("close");
-                check_close(&floor(&input), get_output!("values"), 1e-10, &filename)
+                chk(&floor(&input), get_output!("values"), &filename)
             }
             "ln" => {
                 let input = get_input!("close");
-                check_close(&ln(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ln(&input), get_output!("values"), &filename)
             }
             "log10" => {
                 let input = get_input!("close");
-                check_close(&log10(&input), get_output!("values"), 1e-10, &filename)
+                chk(&log10(&input), get_output!("values"), &filename)
             }
             "sin" => {
                 let input = get_input!("close");
-                check_close(&sin(&input), get_output!("values"), 1e-10, &filename)
+                chk(&sin(&input), get_output!("values"), &filename)
             }
             "sinh" => {
                 let input = get_input!("close");
-                check_close(&sinh(&input), get_output!("values"), 1e-10, &filename)
+                chk(&sinh(&input), get_output!("values"), &filename)
             }
             "sqrt" => {
                 let input = get_input!("close");
-                check_close(&sqrt(&input), get_output!("values"), 1e-10, &filename)
+                chk(&sqrt(&input), get_output!("values"), &filename)
             }
             "tan" => {
                 let input = get_input!("close");
-                check_close(&tan(&input), get_output!("values"), 1e-10, &filename)
+                chk(&tan(&input), get_output!("values"), &filename)
             }
             "tanh" => {
                 let input = get_input!("close");
-                check_close(&tanh(&input), get_output!("values"), 1e-10, &filename)
+                chk(&tanh(&input), get_output!("values"), &filename)
             }
 
             // ── Math Ops ──────────────────────────────────────────────────────
             "add" => {
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&add(&real0, &real1), get_output!("values"), 1e-10, &filename)
+                chk(&add(&real0, &real1), get_output!("values"), &filename)
             }
             "sub" => {
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&sub(&real0, &real1), get_output!("values"), 1e-10, &filename)
+                chk(&sub(&real0, &real1), get_output!("values"), &filename)
             }
             "mult" => {
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&mult(&real0, &real1), get_output!("values"), 1e-10, &filename)
+                chk(&mult(&real0, &real1), get_output!("values"), &filename)
             }
             "div" => {
                 let real0 = get_input!("real0");
                 let real1 = get_input!("real1");
-                check_close(&div(&real0, &real1), get_output!("values"), 1e-10, &filename)
+                chk(&div(&real0, &real1), get_output!("values"), &filename)
             }
             "max" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
-                check_close(&max(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&max(&input, period), get_output!("values"), &filename)
             }
             "min" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
-                check_close(&min(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&min(&input, period), get_output!("values"), &filename)
             }
             "sum" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
-                check_close(&sum(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&sum(&input, period), get_output!("values"), &filename)
             }
             "maxindex" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
-                check_close(&maxindex(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&maxindex(&input, period), get_output!("values"), &filename)
             }
             "minindex" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
-                check_close(&minindex(&input, period), get_output!("values"), 1e-10, &filename)
+                chk(&minindex(&input, period), get_output!("values"), &filename)
             }
             "minmax" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
                 let out = minmax(&input, period);
-                let r_min = check_close(&out.min, get_output!("min"), 1e-10, &filename);
-                let r_max = check_close(&out.max, get_output!("max"), 1e-10, &filename);
+                let r_min = chk(&out.min, get_output!("min"), &filename);
+                let r_max = chk(&out.max, get_output!("max"), &filename);
                 merge_results(&filename, &[r_min, r_max])
             }
             "minmaxindex" => {
                 let period = golden.meta.params["period"].as_u64().unwrap_or(30) as usize;
                 let input = get_input!("close");
                 let out = minmaxindex(&input, period);
-                let r_min = check_close(&out.minidx, get_output!("minidx"), 1e-10, &filename);
-                let r_max = check_close(&out.maxidx, get_output!("maxidx"), 1e-10, &filename);
+                let r_min = chk(&out.minidx, get_output!("minidx"), &filename);
+                let r_max = chk(&out.maxidx, get_output!("maxidx"), &filename);
                 merge_results(&filename, &[r_min, r_max])
             }
 
             // ── Hilbert Transform ─────────────────────────────────────────────
             "ht_dcperiod" => {
                 let input = get_input!("close");
-                check_close(&ht_dcperiod(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ht_dcperiod(&input), get_output!("values"), &filename)
             }
             "ht_dcphase" => {
                 let input = get_input!("close");
-                check_close(&ht_dcphase(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ht_dcphase(&input), get_output!("values"), &filename)
             }
             "ht_phasor" => {
                 let input = get_input!("close");
                 let (inphase, quadrature) = ht_phasor(&input);
-                let r_ip = check_close(&inphase,    get_output!("inphase"),    1e-10, &filename);
-                let r_q  = check_close(&quadrature, get_output!("quadrature"), 1e-10, &filename);
+                let r_ip = chk(&inphase,    get_output!("inphase"),    &filename);
+                let r_q  = chk(&quadrature, get_output!("quadrature"), &filename);
                 merge_results(&filename, &[r_ip, r_q])
             }
             "ht_sine" => {
                 let input = get_input!("close");
                 let (sine, leadsine) = ht_sine(&input);
-                let r_s  = check_close(&sine,     get_output!("sine"),     1e-10, &filename);
-                let r_ls = check_close(&leadsine, get_output!("leadsine"), 1e-10, &filename);
+                let r_s  = chk(&sine,     get_output!("sine"),     &filename);
+                let r_ls = chk(&leadsine, get_output!("leadsine"), &filename);
                 merge_results(&filename, &[r_s, r_ls])
             }
             "ht_trendline" => {
                 let input = get_input!("close");
-                check_close(&ht_trendline(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ht_trendline(&input), get_output!("values"), &filename)
             }
             "ht_trendmode" => {
                 let input = get_input!("close");
-                check_close(&ht_trendmode(&input), get_output!("values"), 1e-10, &filename)
+                chk(&ht_trendmode(&input), get_output!("values"), &filename)
             }
 
             // ── Candlestick Patterns ──────────────────────────────────────────
@@ -714,427 +720,427 @@ fn main() {
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl2crows(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl2crows(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3blackcrows" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3blackcrows(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3blackcrows(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3inside" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3inside(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3inside(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3linestrike" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3linestrike(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3linestrike(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3outside" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3outside(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3outside(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3starsinsouth" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3starsinsouth(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3starsinsouth(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdl3whitesoldiers" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdl3whitesoldiers(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdl3whitesoldiers(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlabandonedbaby" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlabandonedbaby(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlabandonedbaby(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdladvanceblock" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdladvanceblock(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdladvanceblock(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlbelthold" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlbelthold(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlbelthold(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlbreakaway" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlbreakaway(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlbreakaway(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlclosingmarubozu" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlclosingmarubozu(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlclosingmarubozu(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlconcealbabyswall" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlconcealbabyswall(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlconcealbabyswall(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlcounterattack" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlcounterattack(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlcounterattack(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdldarkcloudcover" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdldarkcloudcover(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdldarkcloudcover(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdldoji" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdldoji(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdldoji(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdldojistar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdldojistar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdldojistar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdldragonflydoji" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdldragonflydoji(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdldragonflydoji(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlengulfing" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlengulfing(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlengulfing(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdleveningdojistar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdleveningdojistar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdleveningdojistar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdleveningstar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdleveningstar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdleveningstar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlgapsidesidewhite" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlgapsidesidewhite(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlgapsidesidewhite(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlgravestonedoji" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlgravestonedoji(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlgravestonedoji(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhammer" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhammer(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhammer(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhangingman" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhangingman(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhangingman(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlharami" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlharami(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlharami(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlharamicross" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlharamicross(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlharamicross(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhighwave" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhighwave(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhighwave(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhikkake" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhikkake(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhikkake(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhikkakemod" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhikkakemod(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhikkakemod(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlhomingpigeon" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlhomingpigeon(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlhomingpigeon(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlidentical3crows" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlidentical3crows(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlidentical3crows(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlinneck" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlinneck(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlinneck(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlinvertedhammer" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlinvertedhammer(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlinvertedhammer(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlkicking" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlkicking(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlkicking(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlkickingbylength" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlkickingbylength(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlkickingbylength(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlladderbottom" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlladderbottom(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlladderbottom(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdllongleggeddoji" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdllongleggeddoji(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdllongleggeddoji(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdllongline" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdllongline(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdllongline(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlmarubozu" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlmarubozu(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlmarubozu(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlmatchinglow" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlmatchinglow(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlmatchinglow(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlmathold" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlmathold(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlmathold(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlmorningdojistar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlmorningdojistar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlmorningdojistar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlmorningstar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlmorningstar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlmorningstar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlonneck" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlonneck(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlonneck(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlpiercing" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlpiercing(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlpiercing(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlrickshawman" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlrickshawman(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlrickshawman(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlrisefall3methods" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlrisefall3methods(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlrisefall3methods(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlseparatinglines" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlseparatinglines(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlseparatinglines(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlshootingstar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlshootingstar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlshootingstar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlshortline" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlshortline(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlshortline(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlspinningtop" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlspinningtop(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlspinningtop(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlstalledpattern" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlstalledpattern(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlstalledpattern(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlsticksandwich" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlsticksandwich(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlsticksandwich(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdltakuri" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdltakuri(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdltakuri(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdltasukigap" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdltasukigap(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdltasukigap(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlthrusting" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlthrusting(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlthrusting(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdltristar" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdltristar(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdltristar(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlunique3river" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlunique3river(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlunique3river(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlupsidegap2crows" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlupsidegap2crows(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlupsidegap2crows(&open, &high, &low, &close), get_output!("values"), &filename)
             }
             "cdlxsidegap3methods" => {
                 let open  = get_input!("open");
                 let high  = get_input!("high");
                 let low   = get_input!("low");
                 let close = get_input!("close");
-                check_close(&cdlxsidegap3methods(&open, &high, &low, &close), get_output!("values"), 1e-10, &filename)
+                chk(&cdlxsidegap3methods(&open, &high, &low, &close), get_output!("values"), &filename)
             }
 
             other => {

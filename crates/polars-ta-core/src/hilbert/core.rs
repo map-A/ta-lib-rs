@@ -1,130 +1,250 @@
-//! Shared Hilbert Transform state used by all HT indicators.
+//! Shared Hilbert Transform engine matching ta-lib's exact algorithm.
 //!
-//! Implements ta-lib's internal `TA_INT_*` Hilbert Transform kernel — a
-//! causal IIR approximation of the analytic signal decomposition.
+//! Implements ta-lib's DO_HILBERT_TRANSFORM macro with even/odd bar separation,
+//! WMA warmup, DFT-based DC Phase, and trendline computation.
 
-pub(crate) const HT_LOOKBACK: usize = 63;
+/// Lookback for DCPeriod and Phasor (HT starts at bar 12).
+pub const HT_LOOKBACK_SMALL: usize = 32;
+/// Lookback for DCPhase, Sine, Trendline, Trendmode (HT starts at bar 37).
+pub const HT_LOOKBACK_LARGE: usize = 63;
 
-/// Per-step Hilbert Transform state matching ta-lib's internal variables.
-#[derive(Default)]
-pub(crate) struct HtState {
-    pub period: f64,
-    pub prev_period: f64,
-    pub re: f64,
-    pub im: f64,
-    // Hilbert variables (I1, I2, Q1, Q2, jI, jQ)
-    pub i1_prev2: f64,
-    pub q1_prev2: f64,
-    pub smooth_prev3: f64,
-    pub smooth_prev2: f64,
-    pub detrender_prev2: f64,
-    pub q1_prev_smooth: f64,
-    pub i1_prev_q1: f64,
-    pub ji_prev2: f64,
-    pub jq_prev2: f64,
-    pub smooth: f64,
-    pub detrender: f64,
-    pub q1: f64,
-    pub i1: f64,
-    pub ji: f64,
-    pub jq: f64,
-    pub q2: f64,
-    pub i2: f64,
-    pub re_sum: f64,
-    pub im_sum: f64,
+const A: f64 = 0.0962;
+const B: f64 = 0.5769;
+const SMOOTH_PRICE_SIZE: usize = 50;
+
+/// Per-bar output from the HT engine.
+pub struct HtBarResult {
     pub smooth_period: f64,
-    pub dc_period: f64,
-    pub phase: f64,
-    pub prev_phase: f64,
-    pub prev_i2: f64,
-    pub prev_q2: f64,
-    pub mesa_period: f64,
-    pub mesa_period_mult: f64,
-    pub smooth_price_buf: [f64; 4],
-    pub sp_idx: usize,
+    pub i1: f64,
+    pub q1: f64,
+    pub dc_phase: f64,
+    pub prev_dc_phase: f64,
+    pub sine: f64,
+    pub lead_sine: f64,
+    pub trendline: f64,
+    pub smooth_price_cur: f64,
 }
 
-impl HtState {
-    pub fn new() -> Self {
-        let mut s = Self::default();
-        s.mesa_period = 0.0;
-        s.mesa_period_mult = 0.075;
-        s
+/// One Hilbert Transform stage (detrender, Q1, jI, or jQ).
+#[derive(Default, Clone)]
+struct HilbertBuf {
+    odd: [f64; 3],
+    even: [f64; 3],
+    prev_odd: f64,
+    prev_even: f64,
+    prev_input_odd: f64,
+    prev_input_even: f64,
+}
+
+impl HilbertBuf {
+    fn step(&mut self, input: f64, hilbert_idx: usize, is_even: bool, adj: f64) -> f64 {
+        let ht = A * input;
+        if is_even {
+            let out = -self.even[hilbert_idx] + ht - self.prev_even;
+            self.even[hilbert_idx] = ht;
+            self.prev_even = B * self.prev_input_even;
+            let out = out + self.prev_even;
+            self.prev_input_even = input;
+            out * adj
+        } else {
+            let out = -self.odd[hilbert_idx] + ht - self.prev_odd;
+            self.odd[hilbert_idx] = ht;
+            self.prev_odd = B * self.prev_input_odd;
+            let out = out + self.prev_odd;
+            self.prev_input_odd = input;
+            out * adj
+        }
     }
 }
 
-/// Run one step of ta-lib's HT kernel; updates `state` in place.
-/// Returns (smooth, detrender, q1, i1, ji, jq, q2, i2, re, im, period, phase).
-pub(crate) fn ht_step(price: f64, state: &mut HtState) -> (f64, f64) {
-    let a = 0.0962_f64;
-    let b = 0.5769_f64;
-    let rad_per_deg = std::f64::consts::PI / 180.0;
+/// Run the HT engine over all bars of `close`.
+///
+/// `warmup_i = 9` for lookback-32 indicators (DCPeriod, Phasor).
+/// `warmup_i = 34` for lookback-63 indicators (DCPhase, Sine, Trendline, Trendmode).
+///
+/// Returns a `Vec<Option<HtBarResult>>` of length `close.len()`.
+/// Entries are `None` before the HT main loop starts; `Some` from the first HT bar onward.
+pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>> {
+    let n = close.len();
+    let mut results: Vec<Option<HtBarResult>> = (0..n).map(|_| None).collect();
+    if n < 4 {
+        return results;
+    }
 
-    // Smooth price (4-tap WMA-like)
-    state.smooth_price_buf[state.sp_idx % 4] = price;
-    state.sp_idx += 1;
-    let sp = &state.smooth_price_buf;
-    let idx = state.sp_idx;
-    let smooth = (4.0 * sp[(idx-1) % 4] + 3.0 * sp[(idx-2) % 4]
-        + 2.0 * sp[(idx-3) % 4] + sp[(idx-4) % 4]) / 10.0;
+    let rad2deg = 45.0_f64 / (1.0_f64.atan());
+    let deg2rad = 1.0_f64 / rad2deg;
+    let c2r360 = (1.0_f64.atan()) * 8.0_f64; // 2*pi
 
-    let detrender = (0.0962 * smooth + 0.5769 * state.smooth_prev2
-        - 0.5769 * state.detrender_prev2 - 0.0962 * state.smooth_prev3)
-        * (0.075 * state.period + 0.54);
+    // --- WMA initialisation (3-bar unrolled, mirroring ta-lib) ---
+    let mut trailing_wma_idx: usize = 0;
+    let mut today: usize = 0;
 
-    let q1 = (0.0962 * detrender + 0.5769 * state.detrender_prev2
-        - 0.5769 * state.q1_prev_smooth - 0.0962 * state.i1_prev2)
-        * (0.075 * state.period + 0.54);
+    let c0 = close[today]; today += 1;
+    let mut pws = c0;
+    let mut pw_sum = c0;
+    let c1 = close[today]; today += 1;
+    pws += c1; pw_sum += c1 * 2.0;
+    let c2 = close[today]; today += 1;
+    pws += c2; pw_sum += c2 * 3.0;
+    let mut trailing_wma_val = 0.0_f64;
 
-    let i1 = state.detrender_prev2;
+    // Inline WMA step to avoid borrow issues with close
+    macro_rules! wma_step {
+        ($new_price:expr) => {{
+            pws += $new_price;
+            pws -= trailing_wma_val;
+            pw_sum += $new_price * 4.0;
+            trailing_wma_val = close[trailing_wma_idx];
+            trailing_wma_idx += 1;
+            let sv = pw_sum * 0.1;
+            pw_sum -= pws;
+            sv
+        }};
+    }
 
-    let ji = (a * i1 + b * state.ji_prev2 - b * state.q1_prev2 - a * state.i1_prev2)
-        * (0.075 * state.period + 0.54);
-    let jq = (a * q1 + b * state.jq_prev2 - b * state.i1_prev_q1 - a * state.q1_prev2)
-        * (0.075 * state.period + 0.54);
+    // WMA warmup (9 or 34 iterations)
+    for _ in 0..warmup_i {
+        let _ = wma_step!(close[today]);
+        today += 1;
+    }
+    // `today` is now the start of the HT main loop
 
-    let mut i2 = i1 - jq;
-    let mut q2 = q1 + ji;
-    i2 = 0.2 * i2 + 0.8 * state.prev_i2;
-    q2 = 0.2 * q2 + 0.8 * state.prev_q2;
+    // --- Init HT variables ---
+    let mut hilbert_idx: usize = 0;
+    let mut det = HilbertBuf::default();
+    let mut q1_buf = HilbertBuf::default();
+    let mut ji_buf = HilbertBuf::default();
+    let mut jq_buf = HilbertBuf::default();
 
-    let re = i2 * state.prev_i2 + q2 * state.prev_q2;
-    let im = i2 * state.prev_q2 - q2 * state.prev_i2;
-    let re_s = 0.2 * re + 0.8 * state.re_sum;
-    let im_s = 0.2 * im + 0.8 * state.im_sum;
+    let mut i1_odd_p2 = 0.0_f64;
+    let mut i1_odd_p3 = 0.0_f64;
+    let mut i1_even_p2 = 0.0_f64;
+    let mut i1_even_p3 = 0.0_f64;
+    let mut prev_i2 = 0.0_f64;
+    let mut prev_q2 = 0.0_f64;
+    let mut re = 0.0_f64;
+    let mut im = 0.0_f64;
+    let mut period = 0.0_f64;
+    let mut smooth_period = 0.0_f64;
 
-    let period = if re_s != 0.0 && im_s != 0.0 {
-        let mut p = 360.0 / (im_s.atan2(re_s) / rad_per_deg);
-        p = p.min(1.5 * state.prev_period).max(0.67 * state.prev_period);
-        p.clamp(6.0, 50.0)
-    } else {
-        state.prev_period
-    };
-    let sp = 0.2 * period + 0.8 * state.smooth_period;
+    let mut smooth_price = [0.0_f64; SMOOTH_PRICE_SIZE];
+    let mut sp_idx: usize = 0;
+    let mut dc_phase = 0.0_f64;
+    let mut it1 = 0.0_f64;
+    let mut it2 = 0.0_f64;
+    let mut it3 = 0.0_f64;
 
-    let phase = if i1 != 0.0 {
-        (q1 / i1).atan() / rad_per_deg
-    } else if q1 > 0.0 { 90.0 } else if q1 < 0.0 { -90.0 } else { 0.0 };
+    while today < n {
+        let adj = 0.075 * period + 0.54;
+        let sv = wma_step!(close[today]);
+        smooth_price[sp_idx] = sv;
+        let is_even = (today % 2) == 0;
 
-    // Advance state
-    state.smooth_prev3 = state.smooth_prev2;
-    state.smooth_prev2 = smooth;
-    state.detrender_prev2 = detrender;
-    state.q1_prev_smooth = state.i1_prev_q1;
-    state.i1_prev_q1 = q1;
-    state.i1_prev2 = i1;
-    state.q1_prev2 = q1;
-    state.ji_prev2 = ji;
-    state.jq_prev2 = jq;
-    state.prev_i2 = i2;
-    state.prev_q2 = q2;
-    state.re_sum = re_s;
-    state.im_sum = im_s;
-    state.prev_period = period;
-    state.smooth_period = sp;
-    state.period = period;
-    state.phase = phase;
-    state.dc_period = sp;
+        let detrender_val = det.step(sv, hilbert_idx, is_even, adj);
+        let q1_val = q1_buf.step(detrender_val, hilbert_idx, is_even, adj);
 
-    (sp, phase)
+        let ji_input = if is_even { i1_even_p3 } else { i1_odd_p3 };
+        let ji_val = ji_buf.step(ji_input, hilbert_idx, is_even, adj);
+        let jq_val = jq_buf.step(q1_val, hilbert_idx, is_even, adj);
+
+        let (q2, i2, i1_out) = if is_even {
+            hilbert_idx = (hilbert_idx + 1) % 3;
+            let q2 = 0.2 * (q1_val + ji_val) + 0.8 * prev_q2;
+            let i2 = 0.2 * (i1_even_p3 - jq_val) + 0.8 * prev_i2;
+            i1_odd_p3 = i1_odd_p2;
+            i1_odd_p2 = detrender_val;
+            (q2, i2, i1_even_p3)
+        } else {
+            let q2 = 0.2 * (q1_val + ji_val) + 0.8 * prev_q2;
+            let i2 = 0.2 * (i1_odd_p3 - jq_val) + 0.8 * prev_i2;
+            i1_even_p3 = i1_even_p2;
+            i1_even_p2 = detrender_val;
+            (q2, i2, i1_odd_p3)
+        };
+
+        re = 0.2 * (i2 * prev_i2 + q2 * prev_q2) + 0.8 * re;
+        im = 0.2 * (i2 * prev_q2 - q2 * prev_i2) + 0.8 * im;
+        prev_q2 = q2;
+        prev_i2 = i2;
+
+        let prev_period = period;
+        if im != 0.0 && re != 0.0 {
+            period = 360.0 / ((im / re).atan() * rad2deg);
+        }
+        // C-style clamp: comparisons are false for NaN, so NaN propagates correctly
+        if period > 1.5 * prev_period { period = 1.5 * prev_period; }
+        if period < 0.67 * prev_period { period = 0.67 * prev_period; }
+        if period < 6.0 { period = 6.0; } else if period > 50.0 { period = 50.0; }
+        period = 0.2 * period + 0.8 * prev_period;
+        smooth_period = 0.33 * period + 0.67 * smooth_period;
+
+        // DCPhase via DFT over smooth_price circular buffer
+        let prev_dc_phase = dc_phase;
+        let dcp_int = (smooth_period + 0.5) as usize;
+        let mut real_p = 0.0_f64;
+        let mut imag_p = 0.0_f64;
+        let mut idx = sp_idx;
+        for i in 0..dcp_int {
+            let tr = c2r360 * (i as f64) / (dcp_int as f64);
+            real_p += tr.sin() * smooth_price[idx];
+            imag_p += tr.cos() * smooth_price[idx];
+            idx = if idx == 0 { SMOOTH_PRICE_SIZE - 1 } else { idx - 1 };
+        }
+
+        let tmp = imag_p.abs();
+        if tmp > 0.0 {
+            dc_phase = (real_p / imag_p).atan() * rad2deg;
+        } else if tmp <= 0.01 {
+            if real_p < 0.0 {
+                dc_phase -= 90.0;
+            } else if real_p > 0.0 {
+                dc_phase += 90.0;
+            }
+        }
+        dc_phase += 90.0;
+        if smooth_period != 0.0 {
+            dc_phase += 360.0 / smooth_period;
+        }
+        if imag_p < 0.0 {
+            dc_phase += 180.0;
+        }
+        if dc_phase > 315.0 {
+            dc_phase -= 360.0;
+        }
+
+        let sine = (dc_phase * deg2rad).sin();
+        let lead_sine = ((dc_phase + 45.0) * deg2rad).sin();
+
+        // Trendline: average of last dcp_int raw close bars, smoothed with 4-tap WMA
+        let dcp_int2 = (smooth_period + 0.5) as usize;
+        let mut avg = 0.0_f64;
+        let mut idx2 = today;
+        for _ in 0..dcp_int2 {
+            avg += close[idx2];
+            if idx2 > 0 { idx2 -= 1; }
+        }
+        if dcp_int2 > 0 {
+            avg /= dcp_int2 as f64;
+        }
+        let trendline = (4.0 * avg + 3.0 * it1 + 2.0 * it2 + it3) / 10.0;
+        it3 = it2; it2 = it1; it1 = avg;
+
+        results[today] = Some(HtBarResult {
+            smooth_period,
+            i1: i1_out,
+            q1: q1_val,
+            dc_phase,
+            prev_dc_phase,
+            sine,
+            lead_sine,
+            trendline,
+            smooth_price_cur: sv,
+        });
+
+        // CIRCBUF_NEXT for smooth_price
+        sp_idx = (sp_idx + 1) % SMOOTH_PRICE_SIZE;
+        today += 1;
+    }
+
+    results
 }

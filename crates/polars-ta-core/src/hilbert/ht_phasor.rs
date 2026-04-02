@@ -1,22 +1,19 @@
-//! HT_PHASOR — Hilbert Transform Phasor Components
-//! Returns two vectors: (inphase, quadrature).
-use super::core::{HtState, ht_step, HT_LOOKBACK};
+//! HT_PHASOR — Hilbert Transform Phasor Components.
+//!
+//! Lookback = 32. Returns `(inphase, quadrature)` each of length `n`,
+//! with `NaN` for the first 32 bars.
+use super::core::{run_ht_engine, HT_LOOKBACK_SMALL};
 
-/// Returns `(inphase, quadrature)` starting at index `HT_LOOKBACK`.
 pub fn ht_phasor(close: &[f64]) -> (Vec<f64>, Vec<f64>) {
     let n = close.len();
-    if n <= HT_LOOKBACK { return (vec![], vec![]); }
-    let out_len = n - HT_LOOKBACK;
-    let mut inphase = vec![0.0f64; out_len];
-    let mut quad = vec![0.0f64; out_len];
-    let mut state = HtState::new();
-    for i in 0..HT_LOOKBACK {
-        let _ = ht_step(close[i], &mut state);
+    let results = run_ht_engine(close, 9);
+    let mut inphase = vec![f64::NAN; n];
+    let mut quadrature = vec![f64::NAN; n];
+    for bar in HT_LOOKBACK_SMALL..n {
+        if let Some(r) = &results[bar] {
+            inphase[bar] = r.i1;
+            quadrature[bar] = r.q1;
+        }
     }
-    for i in 0..out_len {
-        let _ = ht_step(close[i + HT_LOOKBACK], &mut state);
-        inphase[i] = state.i1;
-        quad[i] = state.q1;
-    }
-    (inphase, quad)
+    (inphase, quadrature)
 }

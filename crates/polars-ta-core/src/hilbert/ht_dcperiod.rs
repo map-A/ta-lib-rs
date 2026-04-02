@@ -1,21 +1,16 @@
-//! HT_DCPERIOD — Hilbert Transform Dominant Cycle Period
-use super::core::{HtState, ht_step, HT_LOOKBACK};
+//! HT_DCPERIOD — Hilbert Transform Dominant Cycle Period.
+//!
+//! Lookback = 32. Returns `Vec<f64>` of length `n` with `NaN` for the first 32 bars.
+use super::core::{run_ht_engine, HT_LOOKBACK_SMALL};
 
-/// Returns the dominant cycle period for each bar starting at index `HT_LOOKBACK`.
 pub fn ht_dcperiod(close: &[f64]) -> Vec<f64> {
     let n = close.len();
-    if n <= HT_LOOKBACK { return vec![]; }
-    let out_len = n - HT_LOOKBACK;
-    let mut out = vec![0.0f64; out_len];
-    let mut state = HtState::new();
-    state.period = 0.0;
-    // Prime the state with first HT_LOOKBACK values
-    for i in 0..HT_LOOKBACK {
-        let _ = ht_step(close[i], &mut state);
-    }
-    for i in 0..out_len {
-        let (dc, _) = ht_step(close[i + HT_LOOKBACK], &mut state);
-        out[i] = dc;
+    let results = run_ht_engine(close, 9);
+    let mut out = vec![f64::NAN; n];
+    for bar in HT_LOOKBACK_SMALL..n {
+        if let Some(r) = &results[bar] {
+            out[bar] = r.smooth_period;
+        }
     }
     out
 }

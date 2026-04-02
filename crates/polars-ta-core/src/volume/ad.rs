@@ -61,7 +61,7 @@ pub fn ad(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> 
         let c = close[i];
         let v = volume[i];
         let hl = h - l;
-        if hl != 0.0 {
+        if hl > 0.0 {
             acc += (2.0 * c - h - l) * v / hl;
         }
         out[i] = acc;

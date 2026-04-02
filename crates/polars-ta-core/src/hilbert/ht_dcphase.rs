@@ -1,19 +1,16 @@
-//! HT_DCPHASE — Hilbert Transform Dominant Cycle Phase
-use super::core::{HtState, ht_step, HT_LOOKBACK};
+//! HT_DCPHASE — Hilbert Transform Dominant Cycle Phase.
+//!
+//! Lookback = 63. Returns `Vec<f64>` of length `n` with `NaN` for the first 63 bars.
+use super::core::{run_ht_engine, HT_LOOKBACK_LARGE};
 
-/// Returns the dominant cycle phase for each bar starting at index `HT_LOOKBACK`.
 pub fn ht_dcphase(close: &[f64]) -> Vec<f64> {
     let n = close.len();
-    if n <= HT_LOOKBACK { return vec![]; }
-    let out_len = n - HT_LOOKBACK;
-    let mut out = vec![0.0f64; out_len];
-    let mut state = HtState::new();
-    for i in 0..HT_LOOKBACK {
-        let _ = ht_step(close[i], &mut state);
-    }
-    for i in 0..out_len {
-        let (_, phase) = ht_step(close[i + HT_LOOKBACK], &mut state);
-        out[i] = phase;
+    let results = run_ht_engine(close, 34);
+    let mut out = vec![f64::NAN; n];
+    for bar in HT_LOOKBACK_LARGE..n {
+        if let Some(r) = &results[bar] {
+            out[bar] = r.dc_phase;
+        }
     }
     out
 }
