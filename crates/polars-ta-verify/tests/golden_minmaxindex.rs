@@ -25,13 +25,13 @@ fn run_minmaxindex_golden(filename: &str, period: usize, epsilon: f64) {
     let actual = minmaxindex(&close, period);
     let label = format!("minmaxindex(period={})/{}", period, golden.meta.dataset);
     assert_close(
-        &actual.minidx,
+        &actual.min_idx,
         golden.get_output_values("minidx").unwrap(),
         epsilon,
         &format!("{}/minidx", label),
     );
     assert_close(
-        &actual.maxidx,
+        &actual.max_idx,
         golden.get_output_values("maxidx").unwrap(),
         epsilon,
         &format!("{}/maxidx", label),
@@ -61,8 +61,8 @@ fn minmaxindex_period30_boundary_exact() {
 #[test]
 fn minmaxindex_period30_boundary_short() {
     let result = minmaxindex(&vec![1.0f64; 29], 30);
-    assert!(result.minidx.is_empty());
-    assert!(result.maxidx.is_empty());
+    assert!(result.min_idx.is_empty());
+    assert!(result.max_idx.is_empty());
 }
 #[test]
 #[ignore = "NaN propagation differs"]
