@@ -18,9 +18,7 @@ pub fn cdlhighwave(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
     let mut body_sum: f64 = (0..BODY_SHORT_PERIOD)
         .map(|j| real_body(open[j], close[j]))
         .sum();
-    let mut body_trail = 0usize;
-
-    for i in lookback..n {
+    for (body_trail, i) in (lookback..n).enumerate() {
         let avg_body = body_sum / BODY_SHORT_PERIOD as f64;
         let rb = real_body(open[i], close[i]);
         let us = upper_shadow(open[i], high[i], close[i]);
@@ -38,7 +36,6 @@ pub fn cdlhighwave(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
         }
 
         body_sum += real_body(open[i], close[i]) - real_body(open[body_trail], close[body_trail]);
-        body_trail += 1;
     }
     out
 }

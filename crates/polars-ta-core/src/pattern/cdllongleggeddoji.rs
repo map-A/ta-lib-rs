@@ -14,9 +14,8 @@ pub fn cdllongleggeddoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64])
     }
 
     let mut body_sum: f64 = (0..body_period).map(|j| hl_range(high[j], low[j])).sum();
-    let mut body_trailing = 0usize;
 
-    for i in lookback..n {
+    for (body_trailing, i) in (lookback..n).enumerate() {
         let avg_body = body_sum / body_period as f64;
         let rb = real_body(open[i], close[i]);
         let us = upper_shadow(open[i], high[i], close[i]);
@@ -33,7 +32,6 @@ pub fn cdllongleggeddoji(open: &[f64], high: &[f64], low: &[f64], close: &[f64])
 
         body_sum += hl_range(high[i], low[i]);
         body_sum -= hl_range(high[body_trailing], low[body_trailing]);
-        body_trailing += 1;
     }
     out
 }

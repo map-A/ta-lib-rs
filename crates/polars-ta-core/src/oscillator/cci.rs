@@ -75,8 +75,8 @@ pub fn cci(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Vec<f64> 
 
         // 均值偏差（inherently O(period) per step）
         let mut dev_sum = 0.0_f64;
-        for k in 0..period {
-            dev_sum += (tp_buf[k] - sma).abs();
+        for &v in tp_buf.iter().take(period) {
+            dev_sum += (v - sma).abs();
         }
         let mean_dev = dev_sum / period as f64;
 

@@ -27,10 +27,10 @@ pub fn max(data: &[f64], period: usize) -> Vec<f64> {
             // IEEE 754: NaN > anything = false, so NaN seeds stop propagation.
             highest_idx = i as isize;
             highest = data[i];
-            for j in (i + 1)..=newest {
-                if data[j] > highest {
-                    highest = data[j];
-                    highest_idx = j as isize;
+            for (offset, &v) in data[(i + 1)..=newest].iter().enumerate() {
+                if v > highest {
+                    highest = v;
+                    highest_idx = (i + 1 + offset) as isize;
                 }
             }
         } else {

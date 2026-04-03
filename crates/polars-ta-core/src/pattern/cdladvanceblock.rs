@@ -23,7 +23,7 @@ pub fn cdladvanceblock(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -
         upper_shadow(open[i], high[i], close[i]) + lower_shadow(open[i], low[i], close[i])
     };
     let mut ss: [f64; 3] = [
-        (ts..lookback).map(&shadows).sum(), // [0]: bars[2..11]
+        (ts..lookback).map(&shadows).sum(),           // [0]: bars[2..11]
         (ts..lookback).map(|i| shadows(i - 1)).sum(), // [1]: bars[1..10]
         (ts..lookback).map(|i| shadows(i - 2)).sum(), // [0]: bars[0..9]
     ];
@@ -114,8 +114,8 @@ pub fn cdladvanceblock(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -
         }
 
         // Update rolling sums (all anchored at current bar, trailing advances)
-        for k in 0..3usize {
-            ss[k] += shadows(i - k) - shadows(ss_trail.wrapping_sub(k));
+        for (k, item) in ss.iter_mut().enumerate() {
+            *item += shadows(i - k) - shadows(ss_trail.wrapping_sub(k));
         }
         for k in 1..3usize {
             near[k] += hl_range(high[i - k], low[i - k])

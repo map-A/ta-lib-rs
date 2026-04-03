@@ -42,10 +42,10 @@ pub fn cdlconcealbabyswall(open: &[f64], high: &[f64], low: &[f64], close: &[f64
             out[i] = 100.0;
         }
 
-        for k in 0..4usize {
+        for (k, item) in shadow_sum.iter_mut().enumerate() {
             let j = i - 3 + k;
-            shadow_sum[k] += hl_range(high[j], low[j]);
-            shadow_sum[k] -= hl_range(high[j - period], low[j - period]);
+            *item += hl_range(high[j], low[j]);
+            *item -= hl_range(high[j - period], low[j - period]);
         }
     }
     out

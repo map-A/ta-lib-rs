@@ -6,7 +6,7 @@
 //!   - bar[i-1] and bar[i] are both white (bullish)
 //!   - body sizes are near: |body[i] - body[i-1]| < avg_HL[i-1..i-5] * NEAR_FACTOR (0.2)
 //!   - opens are equal:  |open[i] - open[i-1]| < avg_HL[i-1..i-5] * EQUAL_FACTOR (0.05)
-//! Both thresholds use the same sliding window anchored at i-1.
+//!     Both thresholds use the same sliding window anchored at i-1.
 use super::helpers::*;
 
 #[inline]

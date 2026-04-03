@@ -80,10 +80,10 @@ pub fn aroon(high: &[f64], low: &[f64], period: usize) -> AroonOutput {
         if highest_idx < trail {
             highest = high[i];
             highest_idx = trail;
-            for j in (i + 1)..=newest {
-                if high[j] >= highest {
-                    highest = high[j];
-                    highest_idx = j as isize;
+            for (offset, &h) in high[(i + 1)..=newest].iter().enumerate() {
+                if h >= highest {
+                    highest = h;
+                    highest_idx = (i + 1 + offset) as isize;
                 }
             }
         } else if high[newest] >= highest {
@@ -94,10 +94,10 @@ pub fn aroon(high: &[f64], low: &[f64], period: usize) -> AroonOutput {
         if lowest_idx < trail {
             lowest = low[i];
             lowest_idx = trail;
-            for j in (i + 1)..=newest {
-                if low[j] <= lowest {
-                    lowest = low[j];
-                    lowest_idx = j as isize;
+            for (offset, &l) in low[(i + 1)..=newest].iter().enumerate() {
+                if l <= lowest {
+                    lowest = l;
+                    lowest_idx = (i + 1 + offset) as isize;
                 }
             }
         } else if low[newest] <= lowest {

@@ -1,46 +1,5 @@
 //! Common helper types and functions for CDL pattern recognition.
 
-/// Rolling average of a fixed-size sliding window.
-pub(crate) struct RollingAvg {
-    period: usize,
-    buf: Vec<f64>,
-    head: usize,
-    pub sum: f64,
-    pub count: usize,
-}
-
-impl RollingAvg {
-    pub fn new(period: usize) -> Self {
-        Self {
-            period,
-            buf: vec![0.0; period],
-            head: 0,
-            sum: 0.0,
-            count: 0,
-        }
-    }
-
-    pub fn push(&mut self, val: f64) {
-        self.sum -= self.buf[self.head];
-        self.buf[self.head] = val;
-        self.sum += val;
-        self.head = (self.head + 1) % self.period;
-        self.count += 1;
-    }
-
-    pub fn is_ready(&self) -> bool {
-        self.count >= self.period
-    }
-
-    pub fn avg(&self) -> f64 {
-        if self.is_ready() {
-            self.sum / self.period as f64
-        } else {
-            f64::NAN
-        }
-    }
-}
-
 #[inline]
 pub(crate) fn real_body(o: f64, c: f64) -> f64 {
     (c - o).abs()
@@ -68,7 +27,6 @@ pub(crate) fn hl_range(h: f64, l: f64) -> f64 {
 
 /// ta-lib default candle setting periods
 pub(crate) const BODY_LONG_PERIOD: usize = 10;
-pub(crate) const BODY_VERY_LONG_PERIOD: usize = 10;
 pub(crate) const BODY_SHORT_PERIOD: usize = 10;
 pub(crate) const BODY_DOJI_PERIOD: usize = 10;
 pub(crate) const SHADOW_LONG_PERIOD: usize = 10;
@@ -81,7 +39,6 @@ pub(crate) const EQUAL_PERIOD: usize = 5;
 
 /// ta-lib default factors
 pub(crate) const BODY_LONG_FACTOR: f64 = 1.0;
-pub(crate) const BODY_VERY_LONG_FACTOR: f64 = 3.0;
 pub(crate) const BODY_SHORT_FACTOR: f64 = 1.0;
 pub(crate) const BODY_DOJI_FACTOR: f64 = 0.1;
 pub(crate) const SHADOW_LONG_FACTOR: f64 = 1.0;

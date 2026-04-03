@@ -42,8 +42,8 @@ pub fn trima(data: &[f64], period: usize) -> Vec<f64> {
     let inv = 1.0 / (p1 as f64 * p2 as f64);
 
     let mut leave: f64 = 0.0;
-    for k in 0..p1 {
-        leave += data[k];
+    for &v in data.iter().take(p1) {
+        leave += v;
     }
     let mut enter = leave;
     let mut outer_sum = leave;

@@ -21,11 +21,15 @@ pub fn maxindex(data: &[f64], period: usize) -> Vec<f64> {
         if highest_idx < i as isize {
             highest_idx = i as isize;
             highest = data[i];
-            for j in (i + 1)..=newest {
-                if data[j] > highest { highest = data[j]; highest_idx = j as isize; }
+            for (offset, &v) in data[(i + 1)..=newest].iter().enumerate() {
+                if v > highest {
+                    highest = v;
+                    highest_idx = (i + 1 + offset) as isize;
+                }
             }
-        } else {
-            if data[newest] > highest { highest = data[newest]; highest_idx = newest as isize; }
+        } else if data[newest] > highest {
+            highest = data[newest];
+            highest_idx = newest as isize;
         }
         // Always output the index (even when highest is NaN — index points to oldest NaN element)
         out[i] = highest_idx as f64;

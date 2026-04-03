@@ -132,9 +132,7 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
     today += 1;
 
     let mut trailing_wma_value = 0.0f64;
-    let mut smoothed = 0.0f64;
-
-    // 9 次 WMA 预热（到 today=12）
+    // 9 次 WMA 预热（到 today=12）——仅更新 WMA 内部状态，不保存 smoothed
     for _ in 0..9 {
         let p = data[today];
         today += 1;
@@ -143,9 +141,10 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
         period_wma_sum += p * 4.0;
         trailing_wma_value = data[trailing_wma_idx];
         trailing_wma_idx += 1;
-        smoothed = period_wma_sum * 0.1;
         period_wma_sum -= period_wma_sub;
     }
+
+    let mut smoothed;
 
     // ── 主循环 ────────────────────────────────────────────────────────────
     while today < n {
@@ -316,11 +315,7 @@ pub fn mama(data: &[f64], fast_limit: f64, slow_limit: f64) -> MamaOutput {
         if period < tmp2 {
             period = tmp2;
         }
-        if period < 6.0 {
-            period = 6.0;
-        } else if period > 50.0 {
-            period = 50.0;
-        }
+        period = period.clamp(6.0, 50.0);
         period = 0.2 * period + 0.8 * prev_period;
 
         today += 1;

@@ -183,11 +183,7 @@ pub fn run_ht_engine(close: &[f64], warmup_i: usize) -> Vec<Option<HtBarResult>>
         if period < 0.67 * prev_period {
             period = 0.67 * prev_period;
         }
-        if period < 6.0 {
-            period = 6.0;
-        } else if period > 50.0 {
-            period = 50.0;
-        }
+        period = period.clamp(6.0, 50.0);
         period = 0.2 * period + 0.8 * prev_period;
         smooth_period = 0.33 * period + 0.67 * smooth_period;
 

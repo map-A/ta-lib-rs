@@ -25,8 +25,8 @@ categories = ["finance", "science"]
 polars-ta-core = { path = "crates/polars-ta-core" }
 
 # Polars 生态
-polars = { version = "0.46", default-features = false, features = ["lazy", "dtype-full"] }
-polars-core = { version = "0.46", default-features = false }
+polars = { version = "0.53", default-features = false, features = ["lazy", "dtype-full"] }
+polars-core = { version = "0.53" }
 
 # 序列化（Golden Test 文件读写）
 serde = { version = "1.0.228", features = ["derive"] }

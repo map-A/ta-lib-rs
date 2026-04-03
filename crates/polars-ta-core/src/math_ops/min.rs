@@ -19,17 +19,15 @@ pub fn min(data: &[f64], period: usize) -> Vec<f64> {
         if lowest_idx < i as isize {
             lowest_idx = i as isize;
             lowest = data[i];
-            for j in (i + 1)..=newest {
-                if data[j] < lowest {
-                    lowest = data[j];
-                    lowest_idx = j as isize;
+            for (offset, &v) in data[(i + 1)..=newest].iter().enumerate() {
+                if v < lowest {
+                    lowest = v;
+                    lowest_idx = (i + 1 + offset) as isize;
                 }
             }
-        } else {
-            if data[newest] < lowest {
-                lowest = data[newest];
-                lowest_idx = newest as isize;
-            }
+        } else if data[newest] < lowest {
+            lowest = data[newest];
+            lowest_idx = newest as isize;
         }
         out[i] = lowest;
     }

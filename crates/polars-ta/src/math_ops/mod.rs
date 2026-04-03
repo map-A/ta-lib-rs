@@ -113,8 +113,8 @@ pub fn minmax_series(s: &Series, period: usize) -> PolarsResult<MinMaxSeriesOutp
 
 /// Output of [`minmaxindex_series`]: indices of rolling minimum and maximum.
 pub struct MinMaxIndexSeriesOutput {
-    pub minidx: Series,
-    pub maxidx: Series,
+    pub min_idx: Series,
+    pub max_idx: Series,
 }
 
 /// Indices of rolling minimum and maximum. Output length = `n - period + 1`.
@@ -122,7 +122,7 @@ pub fn minmaxindex_series(s: &Series, period: usize) -> PolarsResult<MinMaxIndex
     let data = series_to_f64(s)?;
     let out = math_ops::minmaxindex(&data, period);
     Ok(MinMaxIndexSeriesOutput {
-        minidx: vec_to_series(format!("{}_minidx", s.name()).into(), out.minidx),
-        maxidx: vec_to_series(format!("{}_maxidx", s.name()).into(), out.maxidx),
+        min_idx: vec_to_series(format!("{}_min_idx", s.name()).into(), out.min_idx),
+        max_idx: vec_to_series(format!("{}_max_idx", s.name()).into(), out.max_idx),
     })
 }

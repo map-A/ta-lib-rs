@@ -13,6 +13,10 @@ name = "run-golden"
 path = "src/bin/run_golden.rs"
 
 [[bin]]
+name = "quick-bench"
+path = "src/bin/quick_bench.rs"
+
+[[bin]]
 name = "compare-bench"
 path = "src/bin/compare_bench.rs"
 

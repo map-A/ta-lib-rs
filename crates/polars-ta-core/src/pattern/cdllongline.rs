@@ -18,10 +18,8 @@ pub fn cdllongline(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
     let mut shadow_sum: f64 = (0..shadow_period)
         .map(|j| upper_shadow(open[j], high[j], close[j]) + lower_shadow(open[j], low[j], close[j]))
         .sum();
-    let mut body_trailing = 0usize;
-    let mut shadow_trailing = 0usize;
 
-    for i in lookback..n {
+    for (body_trailing, i) in (lookback..n).enumerate() {
         let avg_body = body_sum / body_period as f64;
         let avg_shadow = shadow_sum / shadow_period as f64;
         let rb = real_body(open[i], close[i]);
@@ -37,20 +35,18 @@ pub fn cdllongline(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) -> Ve
 
         body_sum += real_body(open[i], close[i]);
         body_sum -= real_body(open[body_trailing], close[body_trailing]);
-        body_trailing += 1;
 
         shadow_sum +=
             upper_shadow(open[i], high[i], close[i]) + lower_shadow(open[i], low[i], close[i]);
         shadow_sum -= upper_shadow(
-            open[shadow_trailing],
-            high[shadow_trailing],
-            close[shadow_trailing],
+            open[body_trailing],
+            high[body_trailing],
+            close[body_trailing],
         ) + lower_shadow(
-            open[shadow_trailing],
-            low[shadow_trailing],
-            close[shadow_trailing],
+            open[body_trailing],
+            low[body_trailing],
+            close[body_trailing],
         );
-        shadow_trailing += 1;
     }
     out
 }

@@ -20,16 +20,12 @@ pub fn cdlharamicross(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
     let mut body_long_sum: f64 = (0..BODY_LONG_PERIOD)
         .map(|j| real_body(open[j], close[j]))
         .sum();
-    let mut long_trail = 0usize;
-
-    // BodyDoji anchor i: TrailingIdx = lookback-BODY_DOJI_PERIOD = 1
-    // init while i < lookback → bars [1..10]
     let mut hl_doji_sum: f64 = (1..=BODY_DOJI_PERIOD)
         .map(|j| hl_range(high[j], low[j]))
         .sum();
     let mut doji_trail = 1usize;
 
-    for i in lookback..n {
+    for (long_trail, i) in (lookback..n).enumerate() {
         let avg_long = body_long_sum / BODY_LONG_PERIOD as f64;
         let avg_doji = hl_doji_sum / BODY_DOJI_PERIOD as f64;
         let rb_prev = real_body(open[i - 1], close[i - 1]);
@@ -53,7 +49,6 @@ pub fn cdlharamicross(open: &[f64], high: &[f64], low: &[f64], close: &[f64]) ->
         // Update: BodyLong anchor i-1 → add rb(i-1), remove trailing
         body_long_sum +=
             real_body(open[i - 1], close[i - 1]) - real_body(open[long_trail], close[long_trail]);
-        long_trail += 1;
         // Update: BodyDoji anchor i → add hl(i), remove trailing
         hl_doji_sum += hl_range(high[i], low[i]) - hl_range(high[doji_trail], low[doji_trail]);
         doji_trail += 1;

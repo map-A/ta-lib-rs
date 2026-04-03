@@ -67,21 +67,37 @@ pub fn sarext(
     let mut is_long = high[1] >= high[0];
 
     let (mut ep, mut sar) = if is_long {
-        let initial_sar = if start_value != 0.0 { start_value } else { low[0] };
+        let initial_sar = if start_value != 0.0 {
+            start_value
+        } else {
+            low[0]
+        };
         if high[1].is_nan() {
             is_long = false;
             let ep_short = low[1];
-            let sar_short = if start_value != 0.0 { start_value } else { high[0] };
+            let sar_short = if start_value != 0.0 {
+                start_value
+            } else {
+                high[0]
+            };
             (ep_short, sar_short)
         } else {
             (high[1], initial_sar)
         }
     } else {
-        let initial_sar = if start_value != 0.0 { start_value } else { high[0] };
+        let initial_sar = if start_value != 0.0 {
+            start_value
+        } else {
+            high[0]
+        };
         if low[1].is_nan() {
             is_long = true;
             let ep_long = high[1];
-            let sar_long = if start_value != 0.0 { start_value } else { low[0] };
+            let sar_long = if start_value != 0.0 {
+                start_value
+            } else {
+                low[0]
+            };
             (ep_long, sar_long)
         } else {
             (low[1], initial_sar)

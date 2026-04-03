@@ -108,10 +108,10 @@ pub fn stoch(
                 let t = trail as usize;
                 highest = high[t];
                 highest_idx = trail;
-                for j in (t + 1)..=i {
-                    if high[j] > highest {
-                        highest = high[j];
-                        highest_idx = j as isize;
+                for (offset, &h) in high[(t + 1)..=i].iter().enumerate() {
+                    if h > highest {
+                        highest = h;
+                        highest_idx = (t + 1 + offset) as isize;
                     }
                 }
             } else if high[i] > highest {
@@ -124,10 +124,10 @@ pub fn stoch(
                 let t = trail as usize;
                 lowest = low[t];
                 lowest_idx = trail;
-                for j in (t + 1)..=i {
-                    if low[j] < lowest {
-                        lowest = low[j];
-                        lowest_idx = j as isize;
+                for (offset, &l) in low[(t + 1)..=i].iter().enumerate() {
+                    if l < lowest {
+                        lowest = l;
+                        lowest_idx = (t + 1 + offset) as isize;
                     }
                 }
             } else if low[i] < lowest {
