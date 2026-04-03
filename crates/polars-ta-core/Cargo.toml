@@ -6,7 +6,14 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["technical-analysis", "finance", "trading", "no-std"]
+readme = "../../README.md"
+keywords = ["technical-analysis", "finance", "trading", "indicators"]
+categories = ["algorithms", "science"]
+exclude = [
+    "../../tests/golden/**",
+    "../../scripts/**",
+    "../../.venv/**",
+]
 
 # 零外部依赖，保证可嵌入 / WASM 使用
 [dependencies]

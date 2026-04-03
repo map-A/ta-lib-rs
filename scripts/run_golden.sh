@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # scripts/run_golden.sh
 # =====================
-# Generate golden test data from ta-lib, then run all Golden Tests.
-#
-# Usage:
-#   ./scripts/run_golden.sh [--skip-generate]
+# Verify polars-ta correctness against ta-lib reference values.
 #
 # Steps:
-#   1. Generate golden JSON files (requires Python + ta-lib)
-#   2. Run Rust golden tests (cargo test)
-#   3. Run the golden test runner binary (cargo run --bin run-golden)
+#   1. (Optional) Regenerate golden JSON files using ta-lib Python binding
+#   2. Build and run the Rust golden test runner (all 688 test cases)
+#
+# Usage:
+#   ./scripts/run_golden.sh                  # regenerate golden files, then test
+#   ./scripts/run_golden.sh --skip-generate  # skip generation, run tests only
+#
+# Requirements:
+#   - Rust toolchain (cargo)
+#   - Python 3 with ta-lib (for Step 1 only)
 
 set -euo pipefail
 
@@ -18,6 +22,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
+# ── Detect Python ──────────────────────────────────────────────────────────────
+PYTHON="python3"
+if [ -f "$REPO_ROOT/.venv/bin/python3" ]; then
+  PYTHON="$REPO_ROOT/.venv/bin/python3"
+fi
+
 SKIP_GENERATE=false
 for arg in "$@"; do
   case "$arg" in
@@ -25,32 +35,39 @@ for arg in "$@"; do
   esac
 done
 
+echo "══════════════════════════════════════════"
+echo "  polars-ta Golden Test Suite"
+echo "  $(date '+%Y-%m-%d %H:%M:%S')"
+echo "══════════════════════════════════════════"
+echo ""
+
 # ── Step 1: Generate Golden Files ──────────────────────────────────────────────
 if [ "$SKIP_GENERATE" = false ]; then
-  echo "══════════════════════════════════════════"
-  echo "  Step 1: Generating Golden Test Files"
-  echo "══════════════════════════════════════════"
-  if command -v python3 &> /dev/null; then
-    python3 scripts/generate_golden.py --indicator all
+  echo "Step 1: Generating golden test files from ta-lib..."
+  if "$PYTHON" -c "import talib" 2>/dev/null; then
+    "$PYTHON" scripts/generate_golden.py --indicator all
+    echo "  ✓ Golden files written to tests/golden/"
   else
-    echo "WARNING: python3 not found. Skipping golden file generation."
-    echo "  Install Python 3.11+ and ta-lib to generate golden files."
+    echo "  ⚠ ta-lib not available — skipping generation."
+    echo "    Install with: uv pip install ta-lib  (or: pip install ta-lib)"
+    echo "    Using existing golden files in tests/golden/"
   fi
 else
-  echo "Skipping golden file generation (--skip-generate)"
+  echo "Step 1: Skipped (--skip-generate)"
 fi
 
 echo ""
-echo "══════════════════════════════════════════"
-echo "  Step 2: Running Rust Golden Tests"
-echo "══════════════════════════════════════════"
-cargo test --package polars-ta-verify --test golden_sma 2>&1
+
+# ── Step 2: Build and run golden test binary ───────────────────────────────────
+echo "Step 2: Building run-golden binary..."
+cargo build --release --package polars-ta-verify --bin run-golden --quiet
+echo "  ✓ Built"
 
 echo ""
-echo "══════════════════════════════════════════"
-echo "  Step 3: Golden Test Runner Report"
-echo "══════════════════════════════════════════"
-cargo run --package polars-ta-verify --bin run-golden 2>&1
+echo "Step 3: Running all golden tests..."
+echo ""
+
+"$REPO_ROOT/target/release/run-golden"
 
 echo ""
 echo "✅ Golden tests complete."

@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 keywords = ["polars", "python", "plugin", "technical-analysis"]
+publish = false
 
 [lib]
 # 作为 Python 扩展模块编译

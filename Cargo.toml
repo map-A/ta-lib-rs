@@ -16,13 +16,13 @@ version = "0.1.0"
 edition = "2021"
 authors = ["polars-ta contributors"]
 license = "MIT"
-repository = "https://github.com/yourusername/polars-ta"
+repository = "https://github.com/map-A/ta-lib-rs.git"
 keywords = ["polars", "technical-analysis", "finance", "trading", "indicators"]
-categories = ["finance", "science"]
+categories = ["algorithms", "science"]
+readme = "README.md"
 
 [workspace.dependencies]
-# 算法核心层（零依赖）
-polars-ta-core = { path = "crates/polars-ta-core" }
+polars-ta-core = { path = "crates/polars-ta-core", version = "0.1.0" }
 
 # Polars 生态
 polars = { version = "0.53", default-features = false, features = ["lazy", "dtype-full"] }
